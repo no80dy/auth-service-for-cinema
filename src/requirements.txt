@@ -1,0 +1,16 @@
+redis==5.0.1
+fastapi==0.100.1
+pydantic==2.4.2
+pydantic_settings==2.0.3
+uvicorn==0.24.0
+uvloop==0.17.0 ; sys_platform != "win32" and implementation_name == "cpython"
+gunicorn==21.2.0
+httptools==0.6.1
+asyncpg==0.29.0
+sqlalchemy==2.0.23
+alembic==1.12.1
+async_fastapi_jwt_auth==0.6.1
+passlib==1.7.4
+typer==0.9.0
+
+werkzeug==3.0.1
