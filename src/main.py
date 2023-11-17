@@ -5,16 +5,20 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from api.v1 import auth
+
 from core.config import settings
 from db.postgres import create_database
-from db import redis
-from api.v1 import auth
+
+from db import storage
+from db.redis import RedisStorage
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from models.entity import User
 
-    redis.nosql_storage = redis.RedisStorage(
+    storage.nosql_storage = RedisStorage(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=0,
@@ -24,7 +28,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    await redis.nosql_storage.close()
+    await storage.nosql_storage.close()
 
 
 app = FastAPI(

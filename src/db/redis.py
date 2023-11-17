@@ -13,10 +13,3 @@ class RedisStorage(INoSQLStorage):
 
 	async def close(self):
 		await self.connection.close()
-
-
-nosql_storage: RedisStorage | None = None
-
-
-async def get_nosql_storage() -> RedisStorage:
-	return nosql_storage
