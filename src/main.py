@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 from api.v1 import users
 
 from core.config import settings
-from db.postgres import create_database
 
 from db import storage
 from db.redis import RedisStorage
@@ -16,15 +15,12 @@ from db.redis import RedisStorage
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import models.entity
-
     storage.nosql_storage = RedisStorage(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=0,
         decode_responses=True
     )
-    # await create_database()
     yield
 
     await storage.nosql_storage.close()
