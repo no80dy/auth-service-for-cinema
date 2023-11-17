@@ -13,6 +13,7 @@ from api.v1 import auth
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from models.entity import User
+
     redis.nosql_storage = redis.RedisStorage(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
@@ -20,7 +21,10 @@ async def lifespan(app: FastAPI):
         decode_responses=True
     )
     await create_database()
+
     yield
+
+    await redis.nosql_storage.close()
 
 
 app = FastAPI(
