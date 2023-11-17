@@ -16,13 +16,15 @@ from db.redis import RedisStorage
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import models.entity
+
     storage.nosql_storage = RedisStorage(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=0,
         decode_responses=True
     )
-    await create_database()
+    # await create_database()
     yield
 
     await storage.nosql_storage.close()

@@ -1,11 +1,14 @@
 import uuid
 from datetime import datetime
 
+from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db.postgres import Base
+
+Base: DeclarativeMeta = declarative_base()
 
 
 class User(Base):
