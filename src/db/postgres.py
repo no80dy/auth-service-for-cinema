@@ -22,7 +22,8 @@ async def get_session() -> AsyncSession:
 
 async def create_database() -> None:
 	async with engine.begin() as conn:
-		await conn.run_sync(Base.metadata.create_all)
+		if engine.dialect.has_schema(conn, 'users'):
+			await conn.run_sync(Base.metadata.create_all)
 
 
 async def purge_database() -> None:
