@@ -10,7 +10,7 @@ from core.logger import LOGGING
 
 
 class Settings(BaseSettings):
-	PROJECT_NAME: str = 'movies'
+	PROJECT_NAME: str = 'auth'
 	REDIS_HOST: str = 'redis'
 	REDIS_PORT: int = 6379
 
