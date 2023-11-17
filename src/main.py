@@ -42,8 +42,6 @@ app.include_router(auth.router, prefix='/api/v1/auth', tags=['auth'])
 
 
 if __name__ == '__main__':
-    # Приложение может запускаться командой
-    # `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
     uvicorn.run(
         'main:app',
         host='0.0.0.0',
