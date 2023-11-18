@@ -1,9 +1,8 @@
 from uuid import UUID
+from http import HTTPStatus
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select
 
 from schemas.entity import (
 	GroupInDB,
@@ -13,8 +12,11 @@ from schemas.entity import (
 	GroupRead,
 	GroupUpdate
 )
-from db.postgres import get_session
-from models.entity import Group, Permission
+from services.permissions import (
+	PermissionService,
+	get_permission_service
+)
+from services.group import GroupService, get_group_service
 
 router = APIRouter()
 
@@ -28,14 +30,12 @@ router = APIRouter()
 )
 async def create_permission(
 	permission_create: PermissionCreate,
-	db: AsyncSession = Depends(get_session)
+	permission_service: PermissionService = Depends(get_permission_service)
 ):
-	permission_dto = jsonable_encoder(permission_create)
-	permission = Permission(**permission_dto)
-	db.add(permission)
-	await db.commit()
-	await db.refresh(permission)
-	return permission
+	permission_create_encoded = jsonable_encoder(permission_create)
+	return await permission_service.add_permission_in_database(
+		permission_create_encoded
+	)
 
 
 @router.post(
@@ -47,21 +47,15 @@ async def create_permission(
 )
 async def create_role(
 	group_create: GroupCreate,
-	db: AsyncSession = Depends(get_session)
-):
-	group_dto = jsonable_encoder(group_create)
-	stmt = select(Permission)\
-		.where(Permission.id.in_(group_dto['permissions']))
-	query_result = await db.execute(stmt)
-	permissions = [
-		permission[0] for permission in list(query_result.all())
-	]
-
-	group = Group(group_dto['group_name'], permissions)
-
-	db.add(group)
-	await db.commit()
-	await db.refresh(group)
+	group_service: GroupService = Depends(get_group_service)
+) -> GroupInDB:
+	group_create_encoded = jsonable_encoder(group_create)
+	group = await group_service.create_group(group_create_encoded)
+	if not group:
+		raise HTTPException(
+			status_code=HTTPStatus.NOT_FOUND,
+			detail='permissions not found'
+		)
 	return group
 
 
@@ -73,11 +67,9 @@ async def create_role(
 	response_description='Имена всех групп в базе данных'
 )
 async def read_roles(
-	db: AsyncSession = Depends(get_session)
-):
-	stmt = select(Group)
-	groups = await db.execute(stmt)
-	return [group[0] for group in groups.all()]
+	group_service: GroupService = Depends(get_group_service)
+) -> list[GroupRead]:
+	return await group_service.read_groups()
 
 
 @router.put(
@@ -90,22 +82,16 @@ async def read_roles(
 async def update_role(
 	group_id: UUID,
 	group_update: GroupUpdate,
-	db: AsyncSession = Depends(get_session)
-):
+	group_service: GroupService = Depends(get_group_service)
+) -> GroupInDB:
 	group_update_encoded = jsonable_encoder(group_update)
-	group = await db.get(Group, group_id)
-	stmt = select(Permission)\
-		.where(Permission.id.in_(group_update_encoded['permissions']))
-	query_result = await db.execute(stmt)
-	permissions = [
-		permission[0] for permission in list(query_result.all())
-	]
-
-	group.group_name = group_update_encoded['group_name']
-	group.permissions = permissions
-	await db.commit()
+	group = await group_service.update_group(group_id, group_update_encoded)
+	if not group:
+		raise HTTPException(
+			status_code=HTTPStatus.NOT_FOUND,
+			detail='group or permission not found'
+		)
 	return group
-
 
 @router.delete(
 	'/roles/{group_id}',
@@ -116,11 +102,16 @@ async def update_role(
 )
 async def delete_role(
 	group_id: UUID,
-	db: AsyncSession = Depends(get_session)
-):
-	group = await db.get(Group, group_id)
-	await db.delete(group)
-	await db.commit()
+	group_service: GroupService = Depends(get_group_service)
+) -> dict:
+	group_id = await group_service.delete_group(group_id)
+
+	if not group_id:
+		raise HTTPException(
+			status_code=HTTPStatus.NOT_FOUND,
+			detail='group not found'
+		)
+
 	return {
-		"body": "group deleted successfully"
+		'body': f'deleted {group_id}'
 	}

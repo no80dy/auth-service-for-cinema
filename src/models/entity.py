@@ -28,7 +28,7 @@ class Permission(Base):
 	__tablename__ = 'permissions'
 
 	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-	permission_name = Column(String(50), nullable=False)
+	permission_name = Column(String(50), unique=True, nullable=False)
 
 
 class Group(Base):
@@ -39,7 +39,7 @@ class Group(Base):
 	permissions = relationship(
 		'Permission',
 		secondary=groups_permissions_table,
-		lazy='subquery'
+		lazy='joined'
 	)
 
 	def __init__(self, group_name: str, permissions: list[Permission]):

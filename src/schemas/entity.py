@@ -12,29 +12,28 @@ class PermissionCreate(BaseModel):
     permission_name: str
 
 
-class PermissionRead(BaseModel):
+class PermissionName(BaseModel):
     permission_name: str
 
 
 class GroupInDB(BaseModel):
     id: UUID
     group_name: str
-    permissions: list[PermissionInDB]
+    permissions: list[PermissionName]
 
 
 class GroupCreate(BaseModel):
     group_name: str
-    permissions: list[UUID]
+    permissions: list[str]
 
 class GroupRead(BaseModel):
-    id: UUID
     group_name: str
-    permissions: list[PermissionInDB]
+    permissions: list[PermissionName]
 
 
 class GroupUpdate(BaseModel):
     group_name: str
-    permissions: list[UUID]
+    permissions: list[str]
 
 
 class UserCreate(BaseModel):
