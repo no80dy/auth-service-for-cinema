@@ -3,12 +3,9 @@ from http import HTTPStatus
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.postgres import get_session
-from models.entity import User
 from schemas.entity import UserInDB, UserCreate
+from services.user_services import get_user_service, UserService
 
 router = APIRouter()
 
@@ -20,17 +17,14 @@ router = APIRouter()
 )
 async def create_user(
         user_create: UserCreate,
-        db: AsyncSession = Depends(get_session)
-) -> UserInDB:
+        user_service: UserService = Depends(get_user_service),
+) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_create)
+    user_exist = await user_service.check_exist_user(user_dto)
 
-    result = await db.execute(select(User).where(User.login == user_dto.get('login')))
-    user = result.scalars().first()
-    if user:
+    if user_exist:
         raise HTTPException(status_code=401, detail="Bad username or password")
 
-    user = User(**user_dto)
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    user = await user_service.create_user(user_dto)
+
     return user

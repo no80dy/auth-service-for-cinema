@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Any
 
 from redis.asyncio import Redis
 
@@ -13,3 +14,9 @@ class RedisStorage(INoSQLStorage):
 
 	async def close(self):
 		await self.connection.close()
+
+	async def get(self, key: str) -> str | None:
+		return await self.connection.get(key)
+
+	async def set(self, key: str, value: Any, expired_time: int) -> None:
+		await self.connection.set(key, value, expired_time)
