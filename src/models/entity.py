@@ -19,10 +19,12 @@ class User(Base):
 		nullable=False
 	)
 	login = Column(String(255), unique=True, nullable=False)
+	email = Column(String(50), unique=True)
 	password = Column(String(255), nullable=False)
 	first_name = Column(String(50))
 	last_name = Column(String(50))
 	created_at = Column(DateTime, default=datetime.utcnow)
+	updated_at = Column(DateTime, nullable=True)
 
 	def __init__(
 		self,
