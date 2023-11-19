@@ -5,7 +5,7 @@ from sqlalchemy import Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from db.postgres import Base
+from ..db.postgres import Base
 
 
 class User(Base):

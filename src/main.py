@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from api.v1 import users
+from api.v1 import users, auth
 
 from core.config import settings
 from db.postgres import create_database
@@ -40,6 +40,7 @@ app = FastAPI(
 
 
 app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
+app.include_router(auth.router, prefix='/api/v1/auth', tags=['auth'])
 
 
 if __name__ == '__main__':

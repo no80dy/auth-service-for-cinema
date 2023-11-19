@@ -4,6 +4,7 @@ from typing import Any
 from logging import config as logging_config
 
 from pydantic import PostgresDsn, field_validator, ValidationInfo
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from core.logger import LOGGING
@@ -27,3 +28,9 @@ settings = Settings()
 logging_config.dictConfig(LOGGING)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+# Async FastAPI JWT Auth module settings
+class JWTSettings(BaseModel):
+	authjwt_secret_key: str = "secret"
+
