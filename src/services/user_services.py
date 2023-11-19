@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.postgres import get_session
 from db.redis import RedisStorage
-from db.storage import get_nosql_storage, CacheUserHandler
+from db.storage import get_nosql_storage, TokenHandler
 from models.entity import User
 
 CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
@@ -15,17 +15,23 @@ CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
 class UserService:
     def __init__(
         self,
-        cache_handler: CacheUserHandler,
+        token_handler: TokenHandler,
         db: AsyncSession,
     ) -> None:
-        self.cache_handler = cache_handler
+        self.token_handler = token_handler
         self.db = db
 
     async def check_exist_user(self, user_dto):
-        result = await self.db.execute(select(User).where(User.login == user_dto.get('login')))
+        result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
         user = result.scalars().first()
 
         return True if user else False
+
+    async def check_unique_email(self, user_dto):
+        result = await self.db.execute(select(User).where(User.email == user_dto.get('email')))
+        user = result.scalars().first()
+
+        return True if not user else False
 
     async def create_user(self, user_dto):
         user = User(**user_dto)
@@ -38,9 +44,9 @@ class UserService:
 
 @lru_cache()
 def get_user_service(
-    cache: RedisStorage = Depends(get_nosql_storage),
+    no_sql: RedisStorage = Depends(get_nosql_storage),
     db: AsyncSession = Depends(get_session),
 ) -> UserService:
-    cache_handler = CacheUserHandler(cache, CACHE_EXPIRE_IN_SECONDS)
+    token_handler = TokenHandler(no_sql, CACHE_EXPIRE_IN_SECONDS)
 
-    return UserService(cache_handler, db)
+    return UserService(token_handler, db)
