@@ -1,13 +1,14 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserCreate(BaseModel):
-    login: str
-    password: str
-    first_name: str
-    last_name: str
+    username: str = Field(..., max_length=255)
+    password: str = Field(..., min_length=8, max_length=255)
+    first_name: str = Field(..., max_length=50)
+    last_name: str = Field(..., max_length=50)
+    email: str = Field(..., max_length=50)
 
 
 class UserInDB(BaseModel):
@@ -16,4 +17,4 @@ class UserInDB(BaseModel):
     last_name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True

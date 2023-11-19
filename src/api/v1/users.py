@@ -20,10 +20,14 @@ async def create_user(
         user_service: UserService = Depends(get_user_service),
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_create)
-    user_exist = await user_service.check_exist_user(user_dto)
 
+    user_exist = await user_service.check_exist_user(user_dto)
     if user_exist:
-        raise HTTPException(status_code=401, detail="Bad username or password")
+        raise HTTPException(status_code=401, detail="Некорректное имя пользователя или пароль")
+
+    user_email_unique = await user_service.check_unique_email(user_dto)
+    if not user_email_unique:
+        raise HTTPException(status_code=401, detail="Пользователь с данным email уже зарегистрирован")
 
     user = await user_service.create_user(user_dto)
 
