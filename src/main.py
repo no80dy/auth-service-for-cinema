@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from api.v1 import users
+from api.v1 import users, roles, permissions
 
 from core.config import settings
 from db.postgres import create_database
@@ -24,7 +24,6 @@ async def lifespan(app: FastAPI):
     )
     await create_database()
     yield
-
     await storage.nosql_storage.close()
 
 
@@ -40,6 +39,8 @@ app = FastAPI(
 
 
 app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
+app.include_router(roles.router, prefix='/api/v1/roles', tags=['roles'])
+app.include_router(permissions.router, prefix='/api/v1/permissions', tags=['permissios'])
 
 
 if __name__ == '__main__':

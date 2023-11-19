@@ -2,6 +2,8 @@ from uuid import UUID
 from http import HTTPStatus
 
 from fastapi import APIRouter, Depends, HTTPException
+# TODO: For delete endpoint
+from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
 from schemas.entity import (
