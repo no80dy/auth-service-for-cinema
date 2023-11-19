@@ -11,6 +11,9 @@ class PermissionInDB(BaseModel):
 class PermissionCreate(BaseModel):
     permission_name: str
 
+class PermissionUpdate(BaseModel):
+    permission_name: str
+
 
 class PermissionName(BaseModel):
     permission_name: str

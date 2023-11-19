@@ -19,8 +19,8 @@ groups_users_table = Table(
 groups_permissions_table = Table(
 	'groups_permissions',
 	Base.metadata,
-	Column('group_id', ForeignKey('groups.id')),
-	Column('permission_id', ForeignKey('permissions.id'))
+	Column('group_id', ForeignKey('groups.id', ondelete='CASCADE')),
+	Column('permission_id', ForeignKey('permissions.id', ondelete='CASCADE'))
 )
 
 

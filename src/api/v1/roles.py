@@ -1,20 +1,14 @@
 from uuid import UUID
 from http import HTTPStatus
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from schemas.entity import (
 	GroupInDB,
 	GroupCreate,
-	PermissionInDB,
-	PermissionCreate,
 	GroupRead,
 	GroupUpdate
-)
-from services.permissions import (
-	PermissionService,
-	get_permission_service
 )
 from services.group import GroupService, get_group_service
 
@@ -22,24 +16,7 @@ router = APIRouter()
 
 
 @router.post(
-	'/permissions',
-	response_model=PermissionInDB,
-	summary='Создание привелегии',
-	description='Выполняет создание новой привелегии',
-	response_description='Информация о привелегии, записанной в базу данных'
-)
-async def create_permission(
-	permission_create: PermissionCreate,
-	permission_service: PermissionService = Depends(get_permission_service)
-):
-	permission_create_encoded = jsonable_encoder(permission_create)
-	return await permission_service.add_permission_in_database(
-		permission_create_encoded
-	)
-
-
-@router.post(
-	'/roles',
+	'/',
 	response_model=GroupInDB,
 	summary='Создание роли',
 	description='Выполняет создание новой роли',
@@ -60,7 +37,7 @@ async def create_role(
 
 
 @router.get(
-	'/roles',
+	'/',
 	response_model=list[GroupRead],
 	summary='Просмотр всех групп',
 	description='Выполняет чтение всех групп',
@@ -73,7 +50,7 @@ async def read_roles(
 
 
 @router.put(
-	'/roles/{group_id}',
+	'/{group_id}',
 	response_model=GroupInDB,
 	summary='Обновление данных о жанре',
 	description='Выполняет обновление данных о жанре',
@@ -94,7 +71,7 @@ async def update_role(
 	return group
 
 @router.delete(
-	'/roles/{group_id}',
+	'/{group_id}',
 	response_model=dict,
 	summary='Изменение',
 	description='Выполняет чтение всех групп',

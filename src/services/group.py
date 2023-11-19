@@ -6,54 +6,14 @@ from sqlalchemy import select
 
 from db.postgres import get_session
 from models.entity import Permission, Group
-from schemas.entity import PermissionInDB, GroupInDB, GroupRead, PermissionName
+from schemas.entity import GroupInDB, GroupRead, PermissionName
 
-class GroupService:
+
+class DatabaseSession:
 	def __init__(self, session: AsyncSession):
 		self.session = session
 
-	async def create_group(
-		self,
-		data: dict
-	) ->  GroupInDB | None:
-		group = await self._add_group_in_database(data)
-
-		if not group:
-			return None
-
-		return GroupInDB(
-			id=group.id,
-			group_name=group.group_name,
-			permissions=[
-				PermissionName(permission_name=permission.permission_name)
-				for permission in group.permissions
-			]
-		)
-	async def read_groups(self) -> list[GroupRead]:
-		groups = await self._read_groups_from_database()
-		return [
-			GroupRead(
-				group_name=group.group_name,
-				permissions=[
-					PermissionName(permission_name=permission.permission_name)
-					for permission in group.permissions
-				]
-			)
-			for group in groups
-		]
-
 	async def delete_group(
-		self,
-		group_id: UUID
-	) -> UUID | None:
-		group_id = await self._delete_group_from_database(group_id)
-
-		if not group_id:
-			return None
-
-		return group_id
-
-	async def _delete_group_from_database(
 		self,
 		group_id: UUID
 	) -> UUID | None:
@@ -71,32 +31,11 @@ class GroupService:
 		return group.id
 
 
-	async def _read_groups_from_database(self) -> list[Group]:
+	async def read_groups(self) -> list[Group]:
 		query_result = await self.session.execute(select(Group))
 		return list(query_result.unique().scalars().all())
 
 	async def update_group(
-		self,
-		group_id: UUID,
-		data: dict
-	) -> GroupInDB | None:
-		group = await self._update_group_in_database(group_id, data)
-
-		if not group:
-			return None
-
-		return GroupInDB(
-			id=group.id,
-			group_name=group.group_name,
-			permissions=[
-				PermissionName(
-					permission_name=permission.permission_name
-				)
-				for permission in group.permissions
-			]
-		)
-
-	async def _update_group_in_database(
 		self,
 		group_id: UUID,
 		data: dict
@@ -125,7 +64,7 @@ class GroupService:
 
 		return group
 
-	async def _add_group_in_database(
+	async def add_group(
 		self,
 		data: dict
 	) -> Group | None:
@@ -147,9 +86,76 @@ class GroupService:
 		return group
 
 
+class GroupService:
+	def __init__(self, session: DatabaseSession):
+		self.session = session
+
+	async def create_group(
+		self,
+		data: dict
+	) ->  GroupInDB | None:
+		group = await self.session.add_group(data)
+
+		if not group:
+			return None
+
+		return GroupInDB(
+			id=group.id,
+			group_name=group.group_name,
+			permissions=[
+				PermissionName(permission_name=permission.permission_name)
+				for permission in group.permissions
+			]
+		)
+	async def read_groups(self) -> list[GroupRead]:
+		groups = await self.session.read_groups()
+		return [
+			GroupRead(
+				group_name=group.group_name,
+				permissions=[
+					PermissionName(permission_name=permission.permission_name)
+					for permission in group.permissions
+				]
+			)
+			for group in groups
+		]
+
+	async def update_group(
+		self,
+		group_id: UUID,
+		data: dict
+	) -> GroupInDB | None:
+		group = await self.session.update_group(group_id, data)
+
+		if not group:
+			return None
+
+		return GroupInDB(
+			id=group.id,
+			group_name=group.group_name,
+			permissions=[
+				PermissionName(
+					permission_name=permission.permission_name
+				)
+				for permission in group.permissions
+			]
+		)
+
+	async def delete_group(
+		self,
+		group_id: UUID
+	) -> UUID | None:
+		group_id = await self.session.delete_group(group_id)
+
+		if not group_id:
+			return None
+
+		return group_id
 
 
 async def get_group_service(
 	db: AsyncSession = Depends(get_session)
 ) -> GroupService:
-	return GroupService(db)
+	return GroupService(
+		DatabaseSession(db)
+	)
