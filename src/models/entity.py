@@ -63,7 +63,11 @@ class User(Base):
 	last_name = Column(String(50))
 	created_at = Column(DateTime, default=datetime.utcnow)
 
-	groups = relationship('Group', secondary=groups_users_table)
+	groups = relationship(
+		'Group',
+		secondary=groups_users_table,
+		lazy='joined'
+	)
 
 	def __init__(
 		self,

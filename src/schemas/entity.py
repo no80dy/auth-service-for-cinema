@@ -39,6 +39,10 @@ class GroupUpdate(BaseModel):
     permissions: list[str]
 
 
+class GroupAssign(BaseModel):
+    group_id: UUID
+
+
 class UserCreate(BaseModel):
     login: str
     password: str
@@ -49,6 +53,7 @@ class UserInDB(BaseModel):
     id: UUID
     first_name: str
     last_name: str
+    groups: list[UUID]
 
     class Config:
         orm_mode = True
