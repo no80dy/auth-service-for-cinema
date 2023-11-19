@@ -18,9 +18,9 @@ router = APIRouter()
 @router.post(
 	'/{user_id}/role',
 	response_model=UserInDB,
-	summary='Создание роли',
-	description='Выполняет создание новой роли',
-	response_description='Информация о роли, записанной в базу данных'
+	summary='Назначение роли пользователю',
+	description='Выполняет добавление новой роли для пользователя',
+	response_description='Информация об обновленном пользователе'
 )
 async def add_role(
 	user_id: UUID,
@@ -36,6 +36,27 @@ async def add_role(
 		)
 	return user
 
+
+@router.delete(
+	'/{user_id}/role',
+	response_model=UserInDB,
+	summary='Создание роли',
+	description='Выполняет создание новой роли',
+	response_description='Информация о роли, записанной в базу данных'
+)
+async def delete_role(
+	user_id: UUID,
+	group_assign: GroupAssign,
+	user_service: UserService = Depends(get_user_service)
+):
+	group_assign_encoded = jsonable_encoder(group_assign)
+	user = await user_service.delete_role_from_user(user_id, group_assign_encoded)
+	if not user:
+		raise HTTPException(
+			status_code=HTTPStatus.NOT_FOUND,
+			detail='role or user not found'
+		)
+	return user
 
 @router.post(
 	'/signup',

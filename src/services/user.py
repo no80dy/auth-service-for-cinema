@@ -41,6 +41,35 @@ class DatabaseSession:
 
 		return user
 
+	async def delete_role_from_user(
+		self,
+		user_id: UUID,
+		data: dict
+	) -> User | None:
+		user = (
+			await self.session.execute(
+				select(User).where(User.id == user_id)
+			)
+		).scalar()
+
+		if not user:
+			return None
+
+		group = (
+			await self.session.execute(
+				select(Group).where(Group.id == UUID(data['group_id']))
+			)
+		).scalar()
+
+		if not group:
+			return None
+
+		user.groups.remove(group)
+		await self.session.commit()
+
+		return user
+
+
 class UserService:
 	def __init__(self, session: DatabaseSession):
 		self.session = session
@@ -51,6 +80,23 @@ class UserService:
 		data: dict
 	) -> UserInDB | None:
 		user = await self.session.add_role_to_user(user_id, data)
+
+		if not user:
+			return None
+
+		return UserInDB(
+			id=user.id,
+			first_name=user.first_name,
+			last_name=user.last_name,
+			groups=[group.id for group in user.groups]
+		)
+
+	async def delete_role_from_user(
+		self,
+		user_id: UUID,
+		data: dict
+	) -> UserInDB | None:
+		user = await self.session.delete_role_from_user(user_id, data)
 
 		if not user:
 			return None
