@@ -70,7 +70,7 @@ class DatabaseSession:
 		return user
 
 
-class UserService:
+class UserPermissionsService:
 	def __init__(self, session: DatabaseSession):
 		self.session = session
 
@@ -109,9 +109,9 @@ class UserService:
 		)
 
 
-async def get_user_service(
+async def get_user_permissions_service(
 	db: AsyncSession = Depends(get_session)
-) -> UserService:
-	return UserService(
+) -> UserPermissionsService:
+	return UserPermissionsService(
 		DatabaseSession(db)
 	)
