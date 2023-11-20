@@ -12,7 +12,7 @@ services:
   database:
     image: postgres:latest
     env_file:
-      - ../../../.env
+      - ./tests.env
     ports:
       - "5432:5432"
 
@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile
     image: fastapi-image
     env_file:
-      - ../../../fastapi.env
+      - ./tests.env
     depends_on:
       - database
       - redis
