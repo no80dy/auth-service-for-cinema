@@ -1,8 +1,9 @@
 from functools import lru_cache
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from db.postgres import get_session
 from db.redis import RedisStorage
@@ -40,6 +41,29 @@ class UserService:
         await self.db.refresh(user)
 
         return user
+
+    async def update_password(self, user_dto):
+        user = User(**user_dto)
+        if not await self._check_old_password(user_dto):
+            return False
+
+        new_password = generate_password_hash(user_dto.get('new_password'))
+        await self.db.execute(
+            update(User).where(User.username == user_dto.get('username')).values(password=new_password),
+        )
+        await self.db.commit()
+
+        return user
+
+    async def _check_old_password(self, user_dto):
+        if not user_dto.get('password') == user_dto.get('repeaded_old_password'):
+            return False
+
+        result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
+        user = result.scalars().first()
+        old_pass_verified = check_password_hash(user.password, user_dto.get('password'))
+
+        return True if old_pass_verified else False
 
 
 @lru_cache()
