@@ -18,7 +18,7 @@ class User(Base):
 		unique=True,
 		nullable=False
 	)
-	login = Column(String(255), unique=True, nullable=False)
+	username = Column(String(255), unique=True, nullable=False)
 	email = Column(String(50), unique=True)
 	password = Column(String(255), nullable=False)
 	first_name = Column(String(50))
@@ -28,18 +28,20 @@ class User(Base):
 
 	def __init__(
 		self,
-		login: str,
+		username: str,
 		password: str,
 		first_name: str,
-		last_name: str
+		last_name: str,
+		email: str,
 	) -> None:
-		self.login = login
-		self.password = self.password = generate_password_hash(password)
+		self.username = username
+		self.password = generate_password_hash(password)
 		self.first_name = first_name
 		self.last_name = last_name
+		self.email = email
 
 	def check_password(self, password: str) -> bool:
 		return check_password_hash(self.password, password)
 
 	def __repr__(self) -> str:
-		return f'<User {self.login}>'
+		return f'<User {self.username}>'
