@@ -29,11 +29,19 @@ class AuthService:
         user: User,
         Authorize: AuthJWT = Depends()
     ) -> dict[str, str]:
-        """Create a pair of access and refresh tokens"""
-        access_token = await Authorize.create_access_token(subject=user.login)
-        refresh_token = await Authorize.create_refresh_token(subject=user.login)
+        """Создает пару access и refresh токенов"""
+        access_token = await Authorize.create_access_token(subject=user.username)
+        refresh_token = await Authorize.create_refresh_token(subject=user.username)
+
         return {"access_token": access_token, "refresh_token": refresh_token}
 
+    async def set_tokens_cookies(
+        self,
+        tokens
+    ):
+        # Set the JWT cookies in the response
+        await Authorize.set_access_cookies(access_token)
+        await Authorize.set_refresh_cookies(refresh_token)
 
 @lru_cache()
 def get_auth_service(

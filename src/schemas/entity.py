@@ -18,3 +18,8 @@ class UserInDB(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserSighIn(BaseModel):
+    username: str = Field(max_length=255)
+    password: str = Field(min_length=8, max_length=255)

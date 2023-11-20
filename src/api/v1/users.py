@@ -3,13 +3,22 @@ from http import HTTPStatus
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from async_fastapi_jwt_auth import AuthJWT
+from core.config import JWTSettings
 
-from schemas.entity import UserInDB, UserCreate
+from schemas.entity import UserInDB, UserCreate, UserSighIn
 from services.user_services import get_user_service, UserService
 from services.auth_services import AuthService, get_auth_service
 
 
 router = APIRouter()
+
+
+# Настройки модуля async_fastapi_jwt_auth
+@AuthJWT.load_config
+def get_config():
+    return JWTSettings()
 
 
 @router.post(
@@ -37,16 +46,25 @@ async def create_user(
 
 
 @router.post(
-    path='/login',
+    path='/signin',
     response_model=UserInDB,
     status_code=HTTPStatus.OK
 )
 async def login(
-    username: str,
-    password: str,
+    user_signin: UserSighIn,
     user_service: UserService = Depends(get_user_service),
-    auth_service: AuthService = Depends(get_auth_service)
+    Authorize: AuthJWT = Depends()
 ):
-    user = await user_service.get_user_by_username(username)
-    if user.username != "test" or user.password != "test":
+    user = await user_service.get_user_by_username(user_signin.username)
+    if not user or not user.check_password(user_signin.password):
         raise HTTPException(status_code=401, detail="Bad username or password")
+
+    # Создаем пару access и refresh токенов
+    access_token = await Authorize.create_access_token(subject=user.username)
+    refresh_token = await Authorize.create_refresh_token(subject=user.username)
+
+    # Устанавливаем JWT cookies in the response
+    # await Authorize.set_access_cookies(access_token)
+    # await Authorize.set_refresh_cookies(refresh_token)
+
+    return JSONResponse({'access': access_token, 'refresh': refresh_token})

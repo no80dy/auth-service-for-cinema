@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 
 from fastapi import Depends
@@ -41,9 +42,15 @@ class UserService:
 
         return user
 
-    async def get_user_by_username(self, username: str) -> User:
+    async def get_user_by_username(self, username: str) -> User | None:
+        """Возвращает пользователя из базы данных по его username, если он есть."""
         try:
             result = await self.db.execute(select(User).where(User.login == username))
+            user = result.scalars().first()
+            return user
+        except Exception as e:
+            logging.error(e)
+
 
 @lru_cache()
 def get_user_service(

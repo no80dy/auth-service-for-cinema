@@ -1,5 +1,5 @@
 import os
-
+from datetime import timedelta
 from typing import Any
 from logging import config as logging_config
 
@@ -33,4 +33,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Async FastAPI JWT Auth module settings
 class JWTSettings(BaseModel):
 	authjwt_secret_key: str = "secret"
-
+	# Проверка невалидных refresh токенов
+	authjwt_denylist_enabled: bool = True
+	authjwt_denylist_token_checks: set = {"refresh"}
+	# Хранить и получать JWT токены из кук
+	authjwt_token_location: set = {"cookies"}
+	access_expires: int = timedelta(minutes=10)
+	refresh_expires: int = timedelta(days=10)
