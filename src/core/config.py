@@ -33,13 +33,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Async FastAPI JWT Auth module settings
 class JWTSettings(BaseModel):
 	authjwt_secret_key: str = "secret"
-	# Проверка невалидных refresh токенов
-	authjwt_denylist_enabled: bool = True
-	authjwt_denylist_token_checks: set = {"refresh"}
 	# Хранить и получать JWT токены из кук
 	authjwt_token_location: set = {"cookies"}
 	authjwt_access_token_expires: int = timedelta(minutes=10)
 	authjwt_refresh_token_expires:  int = timedelta(days=10)
-	# для редис
-	access_expires: int = timedelta(minutes=10)
-	refresh_expires: int = timedelta(days=10)
+	authjwt_cookie_csrf_protect: bool = False

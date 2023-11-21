@@ -1,4 +1,10 @@
+import logging
+from datetime import datetime
+
 from async_fastapi_jwt_auth import AuthJWT
+from datetime import timedelta
+from http import HTTPStatus
+from fastapi import HTTPException
 
 from .redis import RedisStorage, INoSQLStorage
 from core.config import JWTSettings
@@ -17,12 +23,21 @@ class TokenHandler:
         self.no_sql = no_sql
         self.expired_time = expired_time
 
-    @AuthJWT.token_in_denylist_loader
-    async def check_if_token_in_denylist(self, decrypted_token):
+    # @AuthJWT.token_in_denylist_loader
+    async def _check_if_token_in_denylist(self, decrypted_token):
         jti = decrypted_token["jti"]
-        entry = self.no_sql.get(jti)
-        return entry and entry == "true"
+        if await self.no_sql.get(jti):
+            return True
+        return False
 
-    async def put_access_token_in_denylist(self, Authorize: AuthJWT) -> None:
-        jti = (await Authorize.get_raw_jwt())["jti"]
-        self.no_sql.set(jti, 'invalid', JWTSettings.access_expires)
+    async def check_if_token_is_valid(self, decrypted_token):
+        is_invalid_token = await self._check_if_token_in_denylist(decrypted_token)
+        if is_invalid_token:
+            raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail="Неверное имя пользователя или пароль")
+
+    async def put_token_in_denylist(self, decrypted_token) -> None:
+        jti = decrypted_token['jti']
+        exp = decrypted_token['exp']
+        # рассчитывает оставшееся время жизни токена (потом можно удалить, тк он просто не пройдет проверку)
+        access_expires = exp - int(datetime.now().timestamp())
+        await self.no_sql.set(jti, 'invalid', access_expires)

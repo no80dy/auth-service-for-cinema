@@ -9,7 +9,7 @@ from db.postgres import get_session
 from db.redis import RedisStorage
 from db.storage import get_nosql_storage, TokenHandler
 from models.entity import User, RefreshSession, UserLoginHistory
-from schemas.entity import RefreshToDb, UserLoginHistoryInDb, UserLogoutHistoryInDb
+from schemas.entity import RefreshToDb, UserLoginHistoryInDb, UserLogoutHistoryInDb, RefreshDelDb
 
 
 CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
@@ -63,6 +63,18 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def del_refresh_session_in_db(self, data: RefreshDelDb) -> None:
+        """Помечает refresh токен как удаленный в базе данных."""
+        try:
+            stmt = update(RefreshSession). \
+                values(is_active=False). \
+                where(User.id == data.user_id and RefreshSession.user_agent == data.user_agent)
+
+            await self.db.execute(stmt)
+            await self.db.commit()
+        except Exception as e:
+            logging.error(e)
+
     async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
         """Записывает историю входа в аккаунт в базу данных."""
         try:
@@ -77,15 +89,12 @@ class UserService:
     async def put_logout_history_in_db(self, data: UserLogoutHistoryInDb) -> None:
         """Записывает историю выхода из аккаунта в базу данных."""
         try:
-            row = UserLoginHistory(**data.model_dump())
-
-            stmt = UserLoginHistory.update(). \
-                values(logout_at=row.logout_at). \
-                where(User.id == row.user_id and UserLoginHistory.user_agent == row.user_agent)
+            stmt = update(UserLoginHistory). \
+                values(logout_at=data.logout_at). \
+                where(User.id == data.user_id and UserLoginHistory.user_agent == data.user_agent)
 
             await self.db.execute(stmt)
             await self.db.commit()
-            await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
 

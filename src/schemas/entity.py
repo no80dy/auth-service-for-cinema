@@ -36,6 +36,13 @@ class RefreshToDb(BaseModel):
     is_active: bool
 
 
+class RefreshDelDb(BaseModel):
+    """Модель удаления refresh токена из postgres."""
+    user_id: UUID
+    refresh_token: str
+    user_agent: str = Field(max_length=255)
+
+
 class UserLoginHistoryInDb(BaseModel):
     user_id: UUID
     user_agent: str = Field(max_length=255)
