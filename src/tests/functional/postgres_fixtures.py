@@ -26,7 +26,7 @@ async_session = async_sessionmaker(
 )
 
 
-@pytest_asyncio.fixture(scope='function', autouse=True)
+@pytest_asyncio.fixture(scope='session', autouse=True)
 async def init_database():
 	async with engine.begin() as conn:
 		await conn.run_sync(Base.metadata.drop_all)
