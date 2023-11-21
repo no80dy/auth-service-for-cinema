@@ -2,8 +2,9 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from async_fastapi_jwt_auth.exceptions import AuthJWTException
 
 from api.v1 import users
 
@@ -38,8 +39,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
 app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
+
+
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request: Request, exc: AuthJWTException):
+    """Exception handler for authjwt."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 
 if __name__ == '__main__':

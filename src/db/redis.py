@@ -1,11 +1,17 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any
 
 from redis.asyncio import Redis
 
 
 class INoSQLStorage(ABC):
-	pass
+	@abstractmethod
+	async def get(self, key: str) -> str | None:
+		pass
+
+	@abstractmethod
+	async def set(self, key: str, value: Any, expired_time: int) -> None:
+		pass
 
 
 class RedisStorage(INoSQLStorage):
