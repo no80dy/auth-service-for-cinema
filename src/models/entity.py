@@ -165,4 +165,4 @@ class UserLoginHistory(Base):
 		self.logout_at = logout_at
 
 	def __repr__(self) -> str:
-		return f'<User: {self.username} U-A: {self.user_agent} LogIn: {self.login_at} LogOut: {self.logout_at}>'
+		return f'<User: {self.user_id} U-A: {self.user_agent} LogIn: {self.login_at} LogOut: {self.logout_at}>'

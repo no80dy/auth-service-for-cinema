@@ -21,7 +21,7 @@ from schemas.entity import (
     UserCreate,
     UserChangePassword,
     UserResponseUsername,
-    GroupAssign
+    GroupAssign, UserResponseHistoryInDb
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
@@ -226,3 +226,16 @@ async def logout(
     session = RefreshDelDb.model_validate_json(session_dto)
     await user_service.del_refresh_session_in_db(session)
     return user
+
+
+@router.get(
+    '/{user_id}/get_history',
+    response_model=list[UserResponseHistoryInDb],
+    status_code=HTTPStatus.OK,
+)
+async def get_history(
+        user_id: UUID,
+        user_service: UserService = Depends(get_user_service),
+):
+    history = await user_service.get_login_history(user_id)
+    return history
