@@ -47,7 +47,10 @@ class UserService:
 
     async def update_password(self, user_dto):
         user = User(**user_dto)
-        if not await self._check_old_password(user_dto):
+        if (
+                not await self._check_old_password(user_dto) or
+                user_dto.get('password') == user_dto.get('new_password')  # старый и новый пароль должны отличаться
+        ):
             return False
 
         new_password = generate_password_hash(user_dto.get('new_password'))
@@ -95,6 +98,15 @@ class UserService:
                 where(User.id == data.user_id and RefreshSession.user_agent == data.user_agent and RefreshSession.refresh_jti == data.refresh_jti)
 
             await self.db.execute(stmt)
+            await self.db.commit()
+        except Exception as e:
+            logging.error(e)
+
+    async def del_all_refresh_sessions_in_db(self, user: User) -> None:
+        try:
+            await self.db.execute(
+                update(RefreshSession).where(RefreshSession.user_id == user.id).values(is_active=False),
+            )
             await self.db.commit()
         except Exception as e:
             logging.error(e)
