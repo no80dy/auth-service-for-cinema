@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
         db=0,
         decode_responses=True
     )
-    # await create_database()
+    await create_database()
     yield
     await storage.nosql_storage.close()
 
