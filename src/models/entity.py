@@ -78,9 +78,11 @@ class User(Base):
 		self,
 		username: str,
 		password: str,
-		first_name: str,
-		last_name: str,
-		email: str,
+		first_name: str = '',
+		last_name: str = '',
+		email: str = '',
+		*args,
+		**kwargs,
 	) -> None:
 		self.username = username
 		self.password = generate_password_hash(password)
