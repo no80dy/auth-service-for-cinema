@@ -2,8 +2,9 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from async_fastapi_jwt_auth.exceptions import AuthJWTException
 
 from api.v1 import users, groups, permissions
 
@@ -22,7 +23,7 @@ async def lifespan(app: FastAPI):
         db=0,
         decode_responses=True
     )
-    await create_database()
+    # await create_database()
     yield
     await storage.nosql_storage.close()
 
@@ -37,10 +38,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
 app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
 app.include_router(groups.router, prefix='/api/v1/groups', tags=['groups'])
 app.include_router(permissions.router, prefix='/api/v1/permissions', tags=['permissios'])
+
+
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request: Request, exc: AuthJWTException):
+    """Exception handler for authjwt."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 
 if __name__ == '__main__':
