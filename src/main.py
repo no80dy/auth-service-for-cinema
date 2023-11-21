@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from async_fastapi_jwt_auth.exceptions import AuthJWTException
 
-from api.v1 import users
+from api.v1 import users, groups, permissions
 
 from core.config import settings
 from db.postgres import create_database
@@ -25,7 +25,6 @@ async def lifespan(app: FastAPI):
     )
     await create_database()
     yield
-
     await storage.nosql_storage.close()
 
 
@@ -40,6 +39,8 @@ app = FastAPI(
 )
 
 app.include_router(users.router, prefix='/api/v1/users', tags=['users'])
+app.include_router(groups.router, prefix='/api/v1/groups', tags=['groups'])
+app.include_router(permissions.router, prefix='/api/v1/permissions', tags=['permissios'])
 
 
 @app.exception_handler(AuthJWTException)

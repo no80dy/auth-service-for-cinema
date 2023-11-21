@@ -1,13 +1,54 @@
 import uuid
-from datetime import datetime, timedelta
 
-from sqlalchemy import Column, DateTime, String, ForeignKey
-from sqlalchemy.types import String, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from datetime import datetime
+
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, String, ForeignKey, Table, Boolean
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db.postgres import Base
+
+
+groups_users_table = Table(
+	'groups_users',
+	Base.metadata,
+	Column('group_id', ForeignKey('groups.id', ondelete='CASCADE'), ),
+	Column('user_id', ForeignKey('users.id', ondelete='CASCADE'))
+)
+
+groups_permissions_table = Table(
+	'groups_permissions',
+	Base.metadata,
+	Column('group_id', ForeignKey('groups.id', ondelete='CASCADE')),
+	Column('permission_id', ForeignKey('permissions.id', ondelete='CASCADE'))
+)
+
+
+class Permission(Base):
+	__tablename__ = 'permissions'
+
+	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+	permission_name = Column(String(50), unique=True, nullable=False)
+
+	def __init__(self, permission_name):
+		self.permission_name = permission_name
+
+
+class Group(Base):
+	__tablename__ = 'groups'
+
+	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
+	group_name = Column(String(50), nullable=False)
+	permissions = relationship(
+		'Permission',
+		secondary=groups_permissions_table,
+		lazy='joined'
+	)
+
+	def __init__(self, group_name: str, permissions: list[Permission]):
+		self.group_name = group_name
+		self.permissions = permissions
 
 
 class User(Base):
@@ -29,6 +70,12 @@ class User(Base):
 	updated_at = Column(DateTime, nullable=True)
 	refresh_sessions = relationship('RefreshSession', cascade="all, delete")
 	user_login_history = relationship('UserLoginHistory', cascade="all, delete")
+
+	groups = relationship(
+		'Group',
+		secondary=groups_users_table,
+		lazy='joined'
+	)
 
 	def __init__(
 		self,

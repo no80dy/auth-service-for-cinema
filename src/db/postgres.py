@@ -1,9 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, DeclarativeBase
 
 from core.config import settings
 
-Base = declarative_base()
+Base: DeclarativeBase = declarative_base()
+
 dsn = (
 	f'{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:'
 	f'{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:'
