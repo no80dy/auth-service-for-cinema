@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from db.postgres import get_session
 from models.entity import Permission, Group
-from schemas.entity import GroupInDB, GroupRead, PermissionName
+from schemas.entity import GroupDetailView, GroupShortView, PermissionShortView
 
 
 class DatabaseSession:
@@ -93,27 +93,27 @@ class GroupService:
 	async def create_group(
 		self,
 		data: dict
-	) ->  GroupInDB | None:
+	) ->  GroupDetailView | None:
 		group = await self.session.add_group(data)
 
 		if not group:
 			return None
 
-		return GroupInDB(
+		return GroupDetailView(
 			id=group.id,
 			group_name=group.group_name,
 			permissions=[
-				PermissionName(permission_name=permission.permission_name)
+				PermissionShortView(permission_name=permission.permission_name)
 				for permission in group.permissions
 			]
 		)
-	async def read_groups(self) -> list[GroupRead]:
+	async def read_groups(self) -> list[GroupShortView]:
 		groups = await self.session.read_groups()
 		return [
-			GroupRead(
+			GroupShortView(
 				group_name=group.group_name,
 				permissions=[
-					PermissionName(permission_name=permission.permission_name)
+					PermissionShortView(permission_name=permission.permission_name)
 					for permission in group.permissions
 				]
 			)
@@ -124,17 +124,17 @@ class GroupService:
 		self,
 		group_id: UUID,
 		data: dict
-	) -> GroupInDB | None:
+	) -> GroupDetailView | None:
 		group = await self.session.update_group(group_id, data)
 
 		if not group:
 			return None
 
-		return GroupInDB(
+		return GroupDetailView(
 			id=group.id,
 			group_name=group.group_name,
 			permissions=[
-				PermissionName(
+				PermissionShortView(
 					permission_name=permission.permission_name
 				)
 				for permission in group.permissions

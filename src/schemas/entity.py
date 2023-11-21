@@ -4,35 +4,37 @@ from pydantic import BaseModel, Field
 
 
 
-class PermissionInDB(BaseModel):
+class PermissionDetailView(BaseModel):
     id: UUID
+    permission_name: str
+
+
+class PermissionShortView(BaseModel):
     permission_name: str
 
 
 class PermissionCreate(BaseModel):
-    permission_name: str
+    permission_name: str = Field(..., max_length=50)
+
 
 class PermissionUpdate(BaseModel):
-    permission_name: str
+    permission_name: str = Field(..., max_length=50)
 
 
-class PermissionName(BaseModel):
-    permission_name: str
-
-
-class GroupInDB(BaseModel):
+class GroupDetailView(BaseModel):
     id: UUID
     group_name: str
-    permissions: list[PermissionName]
+    permissions: list[PermissionShortView]
+
+
+class GroupShortView(BaseModel):
+    group_name: str = Field(..., max_length=50)
+    permissions: list[PermissionShortView]
 
 
 class GroupCreate(BaseModel):
-    group_name: str
+    group_name: str= Field(..., max_length=50)
     permissions: list[str]
-
-class GroupRead(BaseModel):
-    group_name: str
-    permissions: list[PermissionName]
 
 
 class GroupUpdate(BaseModel):

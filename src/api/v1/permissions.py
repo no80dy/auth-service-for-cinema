@@ -1,14 +1,16 @@
 from uuid import UUID
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body, Path
+from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
 from schemas.entity import (
-	PermissionInDB,
+	PermissionDetailView,
+	PermissionShortView,
 	PermissionCreate,
 	PermissionUpdate,
-	PermissionName
 )
 from services.permissions import (
 	PermissionService,
@@ -20,15 +22,15 @@ router = APIRouter()
 
 @router.post(
 	'/',
-	response_model=PermissionInDB,
+	response_model=PermissionDetailView,
 	summary='Создание привелегии',
 	description='Выполняет создание новой привелегии',
-	response_description='Информация о привелегии, записанной в базу данных'
+	response_description='Полная информация о привелегии'
 )
 async def create_permission(
-	permission_create: PermissionCreate,
+	permission_create: Annotated[PermissionCreate, Body(description='Шаблон для создания привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service)
-):
+) -> PermissionDetailView:
 	permission_create_encoded = jsonable_encoder(permission_create)
 	return await permission_service.add_permission(
 		permission_create_encoded
@@ -37,30 +39,30 @@ async def create_permission(
 
 @router.get(
 	'/',
-	response_model=list[PermissionName],
+	response_model=list[PermissionShortView],
 	summary='Чтение всех привелегий',
 	description='Выполняет чтение всех привелегий',
-	response_description='Список всех привелегий из базы данных'
+	response_description='Список привелегий с краткой информацией'
 )
 async def read_permissions(
 	permission_service: PermissionService = Depends(get_permission_service)
-):
+) -> list[PermissionShortView]:
 	permissions = await permission_service.read_permissions()
 	return permissions
 
 
 @router.put(
 	'/{permission_id}',
-	response_model=PermissionInDB,
+	response_model=PermissionDetailView,
 	summary='Изменение привелегии',
 	description='Выполняет изменение конкретной привелегии',
 	response_description='Информация об измененной привелегии из базы данных'
 )
 async def update_permission(
-	permission_id: UUID,
-	permission_upate: PermissionUpdate,
+	permission_id: Annotated[UUID, Path(description='Идентификатор привелегии')],
+	permission_upate: Annotated[PermissionUpdate, Body(description='Шаблон для обновления привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service)
-) -> PermissionInDB:
+) -> PermissionDetailView:
 	permission_update_encoded = jsonable_encoder(permission_upate)
 	permission = await permission_service.update_permission(
 		permission_id, permission_update_encoded
@@ -76,19 +78,21 @@ async def update_permission(
 
 @router.delete(
 	'/{permission_id}',
-	response_model=UUID,
+	response_model=None,
 	summary='Удаление привелегии',
 	description='Выполняет удаление конкретной привелегии',
-	response_description='UUID удаленной привелегии'
+	response_description='Идентификатор '
 )
 async def delete_permission(
-	permission_id: UUID,
+	permission_id: Annotated[UUID, Path(description='Идентификатор привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service)
-) -> UUID:
+) -> JSONResponse:
 	deleted_id = await permission_service.delete_permission(permission_id)
 	if not deleted_id:
 		raise HTTPException(
 			status_code=HTTPStatus.NOT_FOUND,
 			detail='permission not found'
 		)
-	return deleted_id
+	return JSONResponse(
+		content='deleted successfully'
+	)

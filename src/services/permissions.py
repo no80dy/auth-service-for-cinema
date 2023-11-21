@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from db.postgres import get_session
 from models.entity import Permission
-from schemas.entity import PermissionInDB, PermissionName
+from schemas.entity import PermissionDetailView, PermissionShortView
 
 
 class DatabaseSession:
@@ -67,18 +67,18 @@ class PermissionService:
 	async def add_permission(
 		self,
 		data: dict
-	) -> PermissionInDB:
+	) -> PermissionDetailView:
 		permission = await self.session.add_permission(data)
 
-		return PermissionInDB(
+		return PermissionDetailView(
 			id=permission.id,
 			permission_name=permission.permission_name
 		)
 
-	async def read_permissions(self) -> list[PermissionName]:
+	async def read_permissions(self) -> list[PermissionShortView]:
 		permissions  = await self.session.read_permissions()
 		return [
-			PermissionName(permission_name=permission.permission_name)
+			PermissionShortView(permission_name=permission.permission_name)
 			for permission in permissions
 		]
 
@@ -86,13 +86,13 @@ class PermissionService:
 		self,
 		permission_id: UUID,
 		data: dict
-	) -> PermissionInDB | None:
+	) -> PermissionDetailView | None:
 		permission = await self.session.update_permission(permission_id, data)
 
 		if not permission:
 			return None
 
-		return PermissionInDB(
+		return PermissionDetailView(
 			id=permission.id,
 			permission_name=permission.permission_name
 		)

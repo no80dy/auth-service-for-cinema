@@ -12,8 +12,8 @@ from db.postgres import Base
 groups_users_table = Table(
 	'groups_users',
 	Base.metadata,
-	Column('group_id', ForeignKey('groups.id')),
-	Column('user_id', ForeignKey('users.id'))
+	Column('group_id', ForeignKey('groups.id', ondelete='CASCADE'), ),
+	Column('user_id', ForeignKey('users.id', ondelete='CASCADE'))
 )
 
 groups_permissions_table = Table(
@@ -29,6 +29,9 @@ class Permission(Base):
 
 	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
 	permission_name = Column(String(50), unique=True, nullable=False)
+
+	def __init__(self, permission_name):
+		self.permission_name = permission_name
 
 
 class Group(Base):
