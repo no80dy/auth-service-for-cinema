@@ -1,15 +1,19 @@
+import datetime
+from datetime import datetime
+import json
+import logging
 from http import HTTPStatus
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, Header
+from fastapi import Request, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from async_fastapi_jwt_auth import AuthJWT
 from core.config import JWTSettings
 
-from schemas.entity import UserInDB, UserCreate, UserSighIn
+from schemas.entity import UserInDB, UserCreate, UserSighIn, RefreshToDb, UserLoginHistoryInDb
 from services.user_services import get_user_service, UserService
-from services.auth_services import AuthService, get_auth_service
 
 
 router = APIRouter()
@@ -53,18 +57,92 @@ async def create_user(
 async def login(
     user_signin: UserSighIn,
     user_service: UserService = Depends(get_user_service),
-    Authorize: AuthJWT = Depends()
+    Authorize: AuthJWT = Depends(),
+    user_agent: Annotated[str | None, Header()] = None,
 ):
+    """Вход пользователя в аккаунт."""
+    # Проверяем валидность имени пользователя и пароля
     user = await user_service.get_user_by_username(user_signin.username)
     if not user or not user.check_password(user_signin.password):
-        raise HTTPException(status_code=401, detail="Bad username or password")
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail="Неверное имя пользователя или пароль")
 
     # Создаем пару access и refresh токенов
+    # TODO: Записать поля с правами в тело токена?
     access_token = await Authorize.create_access_token(subject=user.username)
     refresh_token = await Authorize.create_refresh_token(subject=user.username)
 
-    # Устанавливаем JWT cookies in the response
-    # await Authorize.set_access_cookies(access_token)
-    # await Authorize.set_refresh_cookies(refresh_token)
+    # Сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
+    # TODO: проверить что не больше 5 сессий от разных устройств!
+    if not user_agent:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
 
-    return JSONResponse({'access': access_token, 'refresh': refresh_token})
+    session_dto = json.dumps({
+        'user_id': str(user.id),
+        'refresh_token': refresh_token,
+        'user_agent': user_agent,
+        'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
+        'is_active': True
+    })
+    session = RefreshToDb.model_validate_json(session_dto)
+    await user_service.put_refresh_session_in_db(session)
+
+    # Записать запись в таблицу истории входа в аккаунт
+    history_dto = json.dumps({
+        'user_id': str(user.id),
+        'user_agent': user_agent,
+    })
+    history = UserLoginHistoryInDb.model_validate_json(history_dto)
+    await user_service.put_login_history_in_db(history)
+
+    # Устанавливаем JWT куки в заголовок ответа
+    await Authorize.set_access_cookies(access_token)
+    await Authorize.set_refresh_cookies(refresh_token)
+
+    return user
+
+
+# @router.post(
+#     path='/logout',
+#     response_model=UserInDB,
+#     status_code=HTTPStatus.OK
+# )
+# async def logout(
+#     user_service: UserService = Depends(get_user_service),
+#     Authorize: AuthJWT = Depends(),
+#     user_agent: Annotated[str | None, Header()] = None,
+# ):
+#     """Выход пользователя из аккаунта."""
+#     # Back - end удаляет запись из таблицы refreshSessions по refreshToken
+#     # записать в редис невалидный аксес
+#     # проверяем валидность имени пользователя и пароля
+#     await Authorize.jwt_required()
+#     await Authorize.jwt_refresh_token_required()
+#
+#     # Создаем пару access и refresh токенов
+#     access_token = await Authorize.create_access_token(subject=user.username)
+#     refresh_token = await Authorize.create_refresh_token(subject=user.username)
+#
+#     # Сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
+#     # проверить что не больше 5 сессий от разных устройств!
+#     if not user_agent:
+#         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
+#
+#     session_dto = json.dumps({
+#         'user_id': str(user.id),
+#         'refresh_token': refresh_token,
+#         'user_agent': user_agent,
+#         'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
+#         'is_active': True
+#     })
+#     session = RefreshToDb.model_validate_json(session_dto)
+#
+#     await user_service.put_refresh_session_in_db(session)
+#
+#     # Устанавливаем JWT куки в заголовок ответа
+#     await Authorize.set_access_cookies(access_token)
+#     await Authorize.set_refresh_cookies(refresh_token)
+#
+#     # Кладем невалидный access токен в редис
+#     # await user_service.token_handler.put_access_token_in_denylist(Authorize)
+#
+#     return user

@@ -2,13 +2,15 @@ import logging
 from functools import lru_cache
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.postgres import get_session
 from db.redis import RedisStorage
 from db.storage import get_nosql_storage, TokenHandler
-from models.entity import User
+from models.entity import User, RefreshSession, UserLoginHistory
+from schemas.entity import RefreshToDb, UserLoginHistoryInDb, UserLogoutHistoryInDb
+
 
 CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
 
@@ -45,9 +47,45 @@ class UserService:
     async def get_user_by_username(self, username: str) -> User | None:
         """Возвращает пользователя из базы данных по его username, если он есть."""
         try:
-            result = await self.db.execute(select(User).where(User.login == username))
+            result = await self.db.execute(select(User).where(User.username == username))
             user = result.scalars().first()
             return user
+        except Exception as e:
+            logging.error(e)
+
+    async def put_refresh_session_in_db(self, data: RefreshToDb) -> None:
+        """Записывает созданный refresh токен в базу данных."""
+        try:
+            row = RefreshSession(**data.model_dump())
+            self.db.add(row)
+            await self.db.commit()
+            await self.db.refresh(row)
+        except Exception as e:
+            logging.error(e)
+
+    async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
+        """Записывает историю входа в аккаунт в базу данных."""
+        try:
+            row = UserLoginHistory(**data.model_dump())
+
+            self.db.add(row)
+            await self.db.commit()
+            await self.db.refresh(row)
+        except Exception as e:
+            logging.error(e)
+
+    async def put_logout_history_in_db(self, data: UserLogoutHistoryInDb) -> None:
+        """Записывает историю выхода из аккаунта в базу данных."""
+        try:
+            row = UserLoginHistory(**data.model_dump())
+
+            stmt = UserLoginHistory.update(). \
+                values(logout_at=row.logout_at). \
+                where(User.id == row.user_id and UserLoginHistory.user_agent == row.user_agent)
+
+            await self.db.execute(stmt)
+            await self.db.commit()
+            await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
 

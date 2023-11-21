@@ -38,5 +38,8 @@ class JWTSettings(BaseModel):
 	authjwt_denylist_token_checks: set = {"refresh"}
 	# Хранить и получать JWT токены из кук
 	authjwt_token_location: set = {"cookies"}
+	authjwt_access_token_expires: int = timedelta(minutes=10)
+	authjwt_refresh_token_expires:  int = timedelta(days=10)
+	# для редис
 	access_expires: int = timedelta(minutes=10)
 	refresh_expires: int = timedelta(days=10)

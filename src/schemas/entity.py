@@ -1,3 +1,5 @@
+from datetime import datetime
+import uuid
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -23,3 +25,23 @@ class UserInDB(BaseModel):
 class UserSighIn(BaseModel):
     username: str = Field(max_length=255)
     password: str = Field(min_length=8, max_length=255)
+
+
+class RefreshToDb(BaseModel):
+    """Модель записи refresh токена в postgres."""
+    user_id: UUID
+    refresh_token: str
+    user_agent: str = Field(max_length=255)
+    expired_at: datetime
+    is_active: bool
+
+
+class UserLoginHistoryInDb(BaseModel):
+    user_id: UUID
+    user_agent: str = Field(max_length=255)
+
+
+class UserLogoutHistoryInDb(BaseModel):
+    user_id: UUID
+    user_agent: str = Field(max_length=255)
+    logout_at: datetime
