@@ -64,7 +64,7 @@ class RefreshSession(Base):
 	)
 
 	user_id = Column(UUID, ForeignKey('users.id'))
-	refresh_token = Column(String, nullable=False)
+	refresh_jti = Column(String, nullable=False)
 	user_agent = Column(String(255), nullable=False)
 	created_at = Column(DateTime, default=datetime.utcnow)
 	expired_at = Column(DateTime, nullable=False)
@@ -73,19 +73,19 @@ class RefreshSession(Base):
 	def __init__(
 		self,
 		user_id: UUID,
-		refresh_token: str,
+		refresh_jti: str,
 		user_agent: str,
 		expired_at: datetime,
 		is_active: bool
 	) -> None:
 		self.user_id = user_id
-		self.refresh_token = refresh_token
+		self.refresh_jti = refresh_jti
 		self.user_agent = user_agent
 		self.expired_at = expired_at
 		self.is_active = is_active
 
 	def __repr__(self) -> str:
-		return f'<User: {self.username} Token: {self.refresh_token} SignIn: {self.created_at}>'
+		return f'<User: {self.username} Token: {self.refresh_jti} SignIn: {self.created_at}>'
 
 
 class UserLoginHistory(Base):

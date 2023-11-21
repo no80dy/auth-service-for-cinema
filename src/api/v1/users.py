@@ -27,9 +27,6 @@ def get_config():
     return JWTSettings()
 
 
-
-
-
 @router.post(
     '/signup',
     response_model=UserInDB,
@@ -66,24 +63,26 @@ async def login(
     user_agent: Annotated[str | None, Header()] = None,
 ):
     """Вход пользователя в аккаунт."""
-    # Проверяем валидность имени пользователя и пароля
+    if not user_agent:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
+
+    # проверяем валидность имени пользователя и пароля
     user = await user_service.get_user_by_username(user_signin.username)
     if not user or not user.check_password(user_signin.password):
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail="Неверное имя пользователя или пароль")
 
-    # Создаем пару access и refresh токенов
+    # создаем пару access и refresh токенов
     # TODO: Записать поля с правами в тело токена?
     access_token = await Authorize.create_access_token(subject=user.username)
     refresh_token = await Authorize.create_refresh_token(subject=user.username)
 
-    # Сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
+    # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
     # TODO: проверить что не больше 5 сессий от разных устройств!
-    if not user_agent:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
 
+    refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
         'user_id': str(user.id),
-        'refresh_token': refresh_token,
+        'refresh_jti': refresh_jti,
         'user_agent': user_agent,
         'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
         'is_active': True
@@ -91,7 +90,7 @@ async def login(
     session = RefreshToDb.model_validate_json(session_dto)
     await user_service.put_refresh_session_in_db(session)
 
-    # Записать запись в таблицу истории входа в аккаунт
+    # записываем историю входа в аккаунт
     history_dto = json.dumps({
         'user_id': str(user.id),
         'user_agent': user_agent,
@@ -99,7 +98,7 @@ async def login(
     history = UserLoginHistoryInDb.model_validate_json(history_dto)
     await user_service.put_login_history_in_db(history)
 
-    # Устанавливаем JWT куки в заголовок ответа
+    # устанавливаем JWT куки в заголовок ответа
     await Authorize.set_access_cookies(access_token)
     await Authorize.set_refresh_cookies(refresh_token)
 
@@ -117,9 +116,6 @@ async def logout(
     user_agent: Annotated[str | None, Header()] = None,
 ):
     """Выход пользователя из аккаунта."""
-    # Back - end удаляет запись из таблицы refreshSessions по refreshToken
-    # записать в редис невалидный аксес
-    # Запиисать в историю когда был логаут
     if not user_agent:
         raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
 
@@ -130,13 +126,13 @@ async def logout(
     decrypted_token = await Authorize.get_raw_jwt()
     await user_service.token_handler.check_if_token_is_valid(decrypted_token)
 
-    # Записываем текущий access токен в список невалидных токенов
+    # записываем текущий access токен в список невалидных токенов
     await user_service.token_handler.put_token_in_denylist(decrypted_token)
 
     username = await Authorize.get_jwt_subject()
     user = await user_service.get_user_by_username(username)
 
-    # Записать запись в таблицу истории выход из аккаунта
+    # обновляем запись в таблицу истории выход из аккаунта
     history_dto = json.dumps({
         'user_id': str(user.id),
         'user_agent': user_agent,
@@ -145,16 +141,15 @@ async def logout(
     history = UserLogoutHistoryInDb.model_validate_json(history_dto)
     await user_service.put_logout_history_in_db(history)
 
-    # Удалить сессию из таблицы refresh_sessions
+    # удаляем сессию из таблицы refresh_sessions
     await Authorize.jwt_refresh_token_required()
-    refresh_token = (await Authorize.get_raw_jwt())['jti']
+    refresh_jti = (await Authorize.get_raw_jwt())['jti']
     session_dto = json.dumps({
         'user_id': str(user.id),
-        'refresh_token': refresh_token,
+        'refresh_jti': refresh_jti,
         'user_agent': user_agent,
     })
     session = RefreshDelDb.model_validate_json(session_dto)
-
     await user_service.del_refresh_session_in_db(session)
 
     return user

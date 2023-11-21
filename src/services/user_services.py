@@ -68,7 +68,7 @@ class UserService:
         try:
             stmt = update(RefreshSession). \
                 values(is_active=False). \
-                where(User.id == data.user_id and RefreshSession.user_agent == data.user_agent)
+                where(User.id == data.user_id and RefreshSession.user_agent == data.user_agent and RefreshSession.refresh_jti == data.refresh_jti)
 
             await self.db.execute(stmt)
             await self.db.commit()

@@ -30,7 +30,7 @@ logging_config.dictConfig(LOGGING)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-# Async FastAPI JWT Auth module settings
+# Настройка конфигурации библиотеки Async FastAPI JWT Auth
 class JWTSettings(BaseModel):
 	authjwt_secret_key: str = "secret"
 	# Хранить и получать JWT токены из кук
