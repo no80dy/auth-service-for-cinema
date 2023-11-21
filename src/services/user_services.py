@@ -1,8 +1,12 @@
+import json
 import logging
+import uuid
+from datetime import datetime
 from functools import lru_cache
+from typing import Sequence, List, Dict
 
 from fastapi import Depends
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -133,6 +137,18 @@ class UserService:
             await self.db.commit()
         except Exception as e:
             logging.error(e)
+
+    async def get_login_history(self, user_id: uuid) -> list[dict[str, UUID | datetime | str]]:
+        result = await self.db.execute(select(UserLoginHistory).where(UserLoginHistory.user_id == str(user_id)))
+        history = result.scalars().all()
+
+        history_dto = [{
+            'user_id': item.user_id,
+            'user_agent': item.user_agent,
+            'login_at': item.login_at,
+        } for item in history]
+
+        return history_dto
 
 
 @lru_cache()

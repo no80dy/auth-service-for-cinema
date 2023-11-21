@@ -12,16 +12,17 @@ from fastapi.encoders import jsonable_encoder
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from schemas.entity import (
-	UserSighIn,
-	UserLoginHistoryInDb,
-	UserLogoutHistoryInDb,
-	RefreshToDb,
-	RefreshDelDb,
-	UserInDB,
-	UserCreate,
-	UserChangePassword,
-	UserResponseUsername,
-	GroupAssign
+    UserSighIn,
+    UserLoginHistoryInDb,
+    UserLogoutHistoryInDb,
+    RefreshToDb,
+    RefreshDelDb,
+    UserInDB,
+    UserCreate,
+    UserChangePassword,
+    UserResponseUsername,
+    GroupAssign, 
+    UserResponseHistoryInDb,
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
@@ -189,40 +190,53 @@ async def logout(
 	Authorize: AuthJWT = Depends(),
 	user_agent: Annotated[str | None, Header()] = None,
 ):
-	"""Выход пользователя из аккаунта."""
-	if not user_agent:
-		raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
+    """Выход пользователя из аккаунта."""
+    if not user_agent:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
 
-	# проверяем наличие и валидность access токена
-	await Authorize.jwt_required()
+    # проверяем наличие и валидность access токена
+    await Authorize.jwt_required()
 
-	# проверяем, что access токен не в списке невалидных токенов
-	decrypted_token = await Authorize.get_raw_jwt()
-	await user_service.token_handler.check_if_token_is_valid(decrypted_token)
+    # проверяем, что access токен не в списке невалидных токенов
+    decrypted_token = await Authorize.get_raw_jwt()
+    await user_service.token_handler.check_if_token_is_valid(decrypted_token)
 
-	# записываем текущий access токен в список невалидных токенов
-	await user_service.token_handler.put_token_in_denylist(decrypted_token)
+    # записываем текущий access токен в список невалидных токенов
+    await user_service.token_handler.put_token_in_denylist(decrypted_token)
 
-	username = await Authorize.get_jwt_subject()
-	user = await user_service.get_user_by_username(username)
+    username = await Authorize.get_jwt_subject()
+    user = await user_service.get_user_by_username(username)
 
-	# обновляем запись в таблицу истории выход из аккаунта
-	history_dto = json.dumps({
-		'user_id': str(user.id),
-		'user_agent': user_agent,
-		'logout_at': datetime.now().isoformat()
-	})
-	history = UserLogoutHistoryInDb.model_validate_json(history_dto)
-	await user_service.put_logout_history_in_db(history)
+    # обновляем запись в таблицу истории выход из аккаунта
+    history_dto = json.dumps({
+        'user_id': str(user.id),
+        'user_agent': user_agent,
+        'logout_at': datetime.now().isoformat()
+    })
+    history = UserLogoutHistoryInDb.model_validate_json(history_dto)
+    await user_service.put_logout_history_in_db(history)
 
-	# удаляем сессию из таблицы refresh_sessions
-	await Authorize.jwt_refresh_token_required()
-	refresh_jti = (await Authorize.get_raw_jwt())['jti']
-	session_dto = json.dumps({
-		'user_id': str(user.id),
-		'refresh_jti': refresh_jti,
-		'user_agent': user_agent,
-	})
-	session = RefreshDelDb.model_validate_json(session_dto)
-	await user_service.del_refresh_session_in_db(session)
-	return user
+    # удаляем сессию из таблицы refresh_sessions
+    await Authorize.jwt_refresh_token_required()
+    refresh_jti = (await Authorize.get_raw_jwt())['jti']
+    session_dto = json.dumps({
+        'user_id': str(user.id),
+        'refresh_jti': refresh_jti,
+        'user_agent': user_agent,
+    })
+    session = RefreshDelDb.model_validate_json(session_dto)
+    await user_service.del_refresh_session_in_db(session)
+    return user
+
+
+@router.get(
+    '/{user_id}/get_history',
+    response_model=list[UserResponseHistoryInDb],
+    status_code=HTTPStatus.OK,
+)
+async def get_history(
+        user_id: UUID,
+        user_service: UserService = Depends(get_user_service),
+):
+    history = await user_service.get_login_history(user_id)
+    return history
