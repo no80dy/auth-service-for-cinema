@@ -110,14 +110,18 @@ async def create_user(
 async def change_password(
         user_change_password: UserChangePassword,
         user_service: UserService = Depends(get_user_service),
+        authorize: AuthJWT = Depends(),
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_change_password)
 
     updated_user = await user_service.update_password(user_dto)
     if updated_user:
+        # при смене пароля разлогиниваем все устройства
+        await authorize.unset_jwt_cookies()
+        user = await user_service.get_user_by_username(user_dto.get('username'))
+        await user_service.del_all_refresh_sessions_in_db(user)
+
         return updated_user
-    # todo: добавить удаление access токена из кэша
-    # todo: поменить в БД refresh токен как невалидный
     else:
         raise HTTPException(status_code=400, detail="Введены некорректные данные")
 
