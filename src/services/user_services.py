@@ -1,9 +1,13 @@
+import json
 import logging
 import uuid
+
+from datetime import datetime
 from functools import lru_cache
+from typing import Sequence, List, Dict
 
 from fastapi import Depends
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -47,7 +51,10 @@ class UserService:
 
     async def update_password(self, user_dto):
         user = User(**user_dto)
-        if not await self._check_old_password(user_dto):
+        if (
+                not await self._check_old_password(user_dto) or
+                user_dto.get('password') == user_dto.get('new_password')  # старый и новый пароль должны отличаться
+        ):
             return False
 
         new_password = generate_password_hash(user_dto.get('new_password'))
@@ -120,6 +127,15 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def del_all_refresh_sessions_in_db(self, user: User) -> None:
+        try:
+            await self.db.execute(
+                update(RefreshSession).where(RefreshSession.user_id == user.id).values(is_active=False),
+            )
+            await self.db.commit()
+        except Exception as e:
+            logging.error(e)
+
     async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
         """Записывает историю входа в аккаунт в базу данных."""
         try:
@@ -173,6 +189,18 @@ class UserService:
             return sessions.count() if len(sessions) > 0 else 0
         except Exception as e:
             logging.error(e)
+
+    async def get_login_history(self, user_id: uuid) -> list[dict[str, UUID | datetime | str]]:
+        result = await self.db.execute(select(UserLoginHistory).where(UserLoginHistory.user_id == str(user_id)))
+        history = result.scalars().all()
+
+        history_dto = [{
+            'user_id': item.user_id,
+            'user_agent': item.user_agent,
+            'login_at': item.login_at,
+        } for item in history]
+
+        return history_dto
 
 
 @lru_cache()
