@@ -19,8 +19,8 @@ if __name__ == '__main__':
 		conn = await asyncpg.connect(
 			user=test_settings.POSTGRES_USER,
 			password=test_settings.POSTGRES_PASSWORD,
-			database=test_settings.POSTGRES_DB_NAME,
-			host=test_settings.POSTGRES_HOST
+			host=test_settings.POSTGRES_HOST,
+			port=test_settings.POSTGRES_PORT
 		)
 		return conn
 

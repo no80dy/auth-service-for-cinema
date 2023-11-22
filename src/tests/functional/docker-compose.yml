@@ -13,6 +13,8 @@ services:
     image: postgres:latest
     env_file:
       - ./tests.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
@@ -34,7 +36,10 @@ services:
     env_file:
       - ./tests.env
     entrypoint: >
-      sh -c "pip install -r /app/tests/functional/requirements.txt
+      sh -c "pip install --no-cache-dir -r /app/tests/functional/requirements.txt
       && python3 /app/tests/functional/utils/wait_for_redis.py
       && python3 /app/tests/functional/utils/wait_for_postgres.py
       && python3 -m pytest --setup-show -vv -W ignore::DeprecationWarning /app/tests/functional/src"
+
+volumes:
+  pgdata:
