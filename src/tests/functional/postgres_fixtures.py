@@ -46,6 +46,7 @@ async def init_session() -> AsyncSession:
 async def clean_up_database(init_session: AsyncSession):
 	for table in Base.metadata.tables.values():
 		await init_session.execute(table.delete())
+		await init_session.commit()
 
 
 @pytest_asyncio.fixture(scope='function')
