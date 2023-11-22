@@ -9,7 +9,7 @@ from datetime import datetime
 from core.config import JWTSettings
 from async_fastapi_jwt_auth import AuthJWT
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from schemas.entity import (
@@ -26,6 +26,9 @@ from schemas.entity import (
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
+
+
+MAX_SESSION_NUMBER = 5
 
 router = APIRouter()
 
@@ -161,9 +164,12 @@ async def login(
     access_token = await Authorize.create_access_token(subject=user.username)
     refresh_token = await Authorize.create_refresh_token(subject=user.username)
 
+    # защита от превышения максимально возможного количества сессий
+    session_number = await user_service.count_refresh_sessions(user.id)
+    if session_number > MAX_SESSION_NUMBER:
+        # await del_all_refresh_sessions_in_db(user)
+        pass
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    # TODO: проверить что не больше 5 сессий от разных устройств!
-
     refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
         'user_id': str(user.id),
@@ -260,7 +266,7 @@ async def refresh(
     username = await Authorize.get_jwt_subject()
     user = await user_service.get_user_by_username(username)
 
-    # удаляем сессию из таблицы refresh_sessions - обработка, если нет такого юзер агента
+    # удаляем сессию из таблицы refresh_sessions
     refresh_jti = (await Authorize.get_raw_jwt())['jti']
     session_dto = json.dumps({
         'user_id': str(user.id),
@@ -268,7 +274,11 @@ async def refresh(
         'user_agent': user_agent,
     })
     session = RefreshDelDb.model_validate_json(session_dto)
-    await user_service.del_refresh_session_in_db(session)
+    session_exist = await user_service.check_if_session_exist(session)
+    if session_exist:
+        await user_service.del_refresh_session_in_db(session)
+    else:
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail='Невалидный токен для данного устройства')
 
     # создаем пару access и refresh токенов
     # TODO: Записать поля с правами в тело токена?
@@ -276,8 +286,6 @@ async def refresh(
     refresh_token = await Authorize.create_refresh_token(subject=user.username)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    # TODO: проверить что не больше 5 сессий от разных устройств!
-
     refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
         'user_id': str(user.id),
@@ -290,7 +298,8 @@ async def refresh(
     await user_service.put_refresh_session_in_db(session)
 
     # устанавливаем новые JWT куки в заголовок ответа
-    await Authorize.set_access_cookies(access_token)
-    await Authorize.set_refresh_cookies(refresh_token)
+    response = JSONResponse(content='Tokens successfully refreshed')
+    await Authorize.set_access_cookies(access_token, response)
+    await Authorize.set_refresh_cookies(refresh_token, response)
 
-    return JSONResponse(content='Tokens successfully refreshed')
+    return response

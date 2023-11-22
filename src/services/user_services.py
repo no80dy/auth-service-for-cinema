@@ -1,4 +1,5 @@
 import logging
+import uuid
 from functools import lru_cache
 
 from fastapi import Depends
@@ -86,6 +87,22 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def check_if_session_exist(self, data: RefreshDelDb):
+        """Проверяет существование сессии."""
+        try:
+            stmt = select(RefreshSession). \
+                where(
+                User.id == data.user_id,
+                    RefreshSession.user_agent == data.user_agent,
+                    RefreshSession.refresh_jti == data.refresh_jti,
+                    RefreshSession.is_active.is_(True),
+                )
+            result =  await self.db.execute(stmt)
+            row = result.scalars().first()
+            return True if row else False
+        except Exception as e:
+            logging.error(e)
+
     async def del_refresh_session_in_db(self, data: RefreshDelDb) -> None:
         """Помечает refresh токен как удаленный в базе данных."""
         try:
@@ -94,11 +111,12 @@ class UserService:
                 where(
                     User.id == data.user_id,
                     RefreshSession.user_agent == data.user_agent,
-                    RefreshSession.refresh_jti == data.refresh_jti
+                    RefreshSession.refresh_jti == data.refresh_jti,
+                    RefreshSession.is_active.is_(True),
                 )
-
             await self.db.execute(stmt)
             await self.db.commit()
+
         except Exception as e:
             logging.error(e)
 
@@ -141,6 +159,18 @@ class UserService:
 
             await self.db.execute(stmt)
             await self.db.commit()
+        except Exception as e:
+            logging.error(e)
+
+    async def count_refresh_sessions(self, user_id: uuid.UUID) -> int:
+        """Возвращает число открытых сессий пользователя."""
+        try:
+            result = await self.db.execute(select(RefreshSession).where(
+                RefreshSession.user_id == user_id,
+                RefreshSession.is_active.is_(True),
+                ))
+            sessions = result.scalars().all()
+            return sessions.count() if len(sessions) > 0 else 0
         except Exception as e:
             logging.error(e)
 
