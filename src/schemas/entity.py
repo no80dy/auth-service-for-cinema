@@ -4,7 +4,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-
 class PermissionDetailView(BaseModel):
     id: UUID
     permission_name: str
