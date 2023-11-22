@@ -43,3 +43,20 @@ def make_post_request(fastapi_session: aiohttp.ClientSession):
             }
             return response
     return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+def make_put_request(fastapi_session: aiohttp.ClientSession):
+    async def inner(endpoint: str, body: dict):
+        url = test_settings.SERVICE_URL + f'/api/v1/{endpoint}'
+        async with fastapi_session.put(url, json=body) as response:
+            body = await response.json() \
+                if response.headers['Content-type'] == 'application/json' else response.text()
+            headers, status = response.headers, response.status
+            response = {
+                'body': body,
+                'headers': headers,
+                'status': status
+            }
+            return response
+    return inner

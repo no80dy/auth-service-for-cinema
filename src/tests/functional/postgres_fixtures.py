@@ -1,4 +1,6 @@
 import sys
+
+import pytest
 import pytest_asyncio
 
 from sqlalchemy.ext.asyncio import (
@@ -13,6 +15,7 @@ from .settings import test_settings
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from db.postgres import Base
+from models.entity import Permission, Group
 
 
 dsn = (
@@ -37,3 +40,33 @@ async def init_database():
 async def init_session() -> AsyncSession:
 	async with async_session() as session:
 		yield session
+
+
+@pytest_asyncio.fixture(scope='function', autouse=True)
+async def clean_up_database(init_session: AsyncSession):
+	for table in Base.metadata.tables.values():
+		await init_session.execute(table.delete())
+
+
+@pytest_asyncio.fixture(scope='function')
+def write_groups_without_permissions_in_database(init_session: AsyncSession):
+	async def inner(groups_names: list[str]):
+		for group_name in groups_names:
+			init_session.add(Group(group_name, []))
+		await init_session.commit()
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+def write_groups_with_permissions_in_database(init_session: AsyncSession):
+	async def inner(groups_names: list[str], permissions_names: list[str]):
+		permissions = [
+			Permission(permission_name) for permission_name in permissions_names
+		]
+		groups = [
+			Group(group_name, permissions) for group_name in groups_names
+		]
+		init_session.add_all(permissions)
+		init_session.add_all(groups)
+		await init_session.commit()
+	return inner
