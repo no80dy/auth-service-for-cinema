@@ -4,7 +4,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-
 class PermissionDetailView(BaseModel):
     id: UUID
     permission_name: str
@@ -34,7 +33,7 @@ class GroupShortView(BaseModel):
 
 
 class GroupCreate(BaseModel):
-    group_name: str= Field(..., max_length=50)
+    group_name: str = Field(..., max_length=50)
     permissions: list[str]
 
 
@@ -109,3 +108,7 @@ class UserLogoutHistoryInDb(BaseModel):
     user_id: UUID
     user_agent: str = Field(max_length=255)
     logout_at: datetime
+
+
+class UserResponseHistoryInDb(UserLoginHistoryInDb):
+    login_at: datetime

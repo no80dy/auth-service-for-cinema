@@ -1,8 +1,13 @@
+import json
 import logging
+import uuid
+
+from datetime import datetime
 from functools import lru_cache
+from typing import Sequence, List, Dict
 
 from fastapi import Depends
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -12,15 +17,14 @@ from db.storage import get_nosql_storage, TokenHandler
 from models.entity import User, RefreshSession, UserLoginHistory
 from schemas.entity import RefreshToDb, UserLoginHistoryInDb, UserLogoutHistoryInDb, RefreshDelDb
 
-
 CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
 
 
 class UserService:
     def __init__(
-        self,
-        token_handler: TokenHandler,
-        db: AsyncSession,
+            self,
+            token_handler: TokenHandler,
+            db: AsyncSession,
     ) -> None:
         self.token_handler = token_handler
         self.db = db
@@ -47,7 +51,10 @@ class UserService:
 
     async def update_password(self, user_dto):
         user = User(**user_dto)
-        if not await self._check_old_password(user_dto):
+        if (
+                not await self._check_old_password(user_dto) or
+                user_dto.get('password') == user_dto.get('new_password')  # старый и новый пароль должны отличаться
+        ):
             return False
 
         new_password = generate_password_hash(user_dto.get('new_password'))
@@ -87,14 +94,44 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def check_if_session_exist(self, data: RefreshDelDb):
+        """Проверяет существование сессии."""
+        try:
+            stmt = select(RefreshSession). \
+                where(
+                User.id == data.user_id,
+                    RefreshSession.user_agent == data.user_agent,
+                    RefreshSession.refresh_jti == data.refresh_jti,
+                    RefreshSession.is_active.is_(True),
+                )
+            result =  await self.db.execute(stmt)
+            row = result.scalars().first()
+            return True if row else False
+        except Exception as e:
+            logging.error(e)
+
     async def del_refresh_session_in_db(self, data: RefreshDelDb) -> None:
         """Помечает refresh токен как удаленный в базе данных."""
         try:
             stmt = update(RefreshSession). \
                 values(is_active=False). \
-                where(User.id == data.user_id and RefreshSession.user_agent == data.user_agent and RefreshSession.refresh_jti == data.refresh_jti)
-
+                where(
+                    User.id == data.user_id,
+                    RefreshSession.user_agent == data.user_agent,
+                    RefreshSession.refresh_jti == data.refresh_jti,
+                    RefreshSession.is_active.is_(True),
+                )
             await self.db.execute(stmt)
+            await self.db.commit()
+
+        except Exception as e:
+            logging.error(e)
+
+    async def del_all_refresh_sessions_in_db(self, user: User) -> None:
+        try:
+            await self.db.execute(
+                update(RefreshSession).where(RefreshSession.user_id == user.id).values(is_active=False),
+            )
             await self.db.commit()
         except Exception as e:
             logging.error(e)
@@ -110,23 +147,66 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def check_if_user_login(self, data: UserLoginHistoryInDb) -> bool:
+        """Проверяет существования активной записи о входе пользователя с данного устройства."""
+        try:
+            stmt = select(UserLoginHistory). \
+                where(
+                    User.id == data.user_id,
+                    UserLoginHistory.user_agent == data.user_agent,
+                    UserLoginHistory.logout_at.is_(None))
+
+            result = await self.db.execute(stmt)
+            active_login_history = result.scalars().first()
+
+            return True if active_login_history else False
+        except Exception as e:
+            logging.error(e)
+
     async def put_logout_history_in_db(self, data: UserLogoutHistoryInDb) -> None:
         """Записывает историю выхода из аккаунта в базу данных."""
         try:
             stmt = update(UserLoginHistory). \
                 values(logout_at=data.logout_at). \
-                where(User.id == data.user_id and UserLoginHistory.user_agent == data.user_agent)
+                where(
+                    User.id == data.user_id,
+                    UserLoginHistory.user_agent == data.user_agent
+                )
 
             await self.db.execute(stmt)
             await self.db.commit()
         except Exception as e:
             logging.error(e)
 
+    async def count_refresh_sessions(self, user_id: uuid.UUID) -> int:
+        """Возвращает число открытых сессий пользователя."""
+        try:
+            result = await self.db.execute(select(RefreshSession).where(
+                RefreshSession.user_id == user_id,
+                RefreshSession.is_active.is_(True),
+                ))
+            sessions = result.scalars().all()
+            return sessions.count() if len(sessions) > 0 else 0
+        except Exception as e:
+            logging.error(e)
+
+    async def get_login_history(self, user_id: uuid) -> list[dict[str, UUID | datetime | str]]:
+        result = await self.db.execute(select(UserLoginHistory).where(UserLoginHistory.user_id == str(user_id)))
+        history = result.scalars().all()
+
+        history_dto = [{
+            'user_id': item.user_id,
+            'user_agent': item.user_agent,
+            'login_at': item.login_at,
+        } for item in history]
+
+        return history_dto
+
 
 @lru_cache()
 def get_user_service(
-    no_sql: RedisStorage = Depends(get_nosql_storage),
-    db: AsyncSession = Depends(get_session),
+        no_sql: RedisStorage = Depends(get_nosql_storage),
+        db: AsyncSession = Depends(get_session),
 ) -> UserService:
     token_handler = TokenHandler(no_sql, CACHE_EXPIRE_IN_SECONDS)
 
