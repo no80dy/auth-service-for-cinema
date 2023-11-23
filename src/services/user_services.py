@@ -93,6 +93,7 @@ class UserService:
             await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def check_if_session_exist(self, data: RefreshDelDb):
         """Проверяет существование сессии."""
@@ -101,10 +102,9 @@ class UserService:
                 where(
                 User.id == data.user_id,
                     RefreshSession.user_agent == data.user_agent,
-                    RefreshSession.refresh_jti == data.refresh_jti,
                     RefreshSession.is_active.is_(True),
                 )
-            result =  await self.db.execute(stmt)
+            result = await self.db.execute(stmt)
             row = result.scalars().first()
             return True if row else False
         except Exception as e:
@@ -118,14 +118,13 @@ class UserService:
                 where(
                     User.id == data.user_id,
                     RefreshSession.user_agent == data.user_agent,
-                    RefreshSession.refresh_jti == data.refresh_jti,
                     RefreshSession.is_active.is_(True),
                 )
             await self.db.execute(stmt)
             await self.db.commit()
-
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def del_all_refresh_sessions_in_db(self, user: User) -> None:
         try:
@@ -146,6 +145,7 @@ class UserService:
             await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def check_if_user_login(self, data: UserLoginHistoryInDb) -> bool:
         """Проверяет существования активной записи о входе пользователя с данного устройства."""
@@ -177,6 +177,7 @@ class UserService:
             await self.db.commit()
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def count_refresh_sessions(self, user_id: uuid.UUID) -> int:
         """Возвращает число открытых сессий пользователя."""

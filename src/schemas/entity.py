@@ -82,7 +82,7 @@ class UserSighIn(BaseModel):
 
 
 class RefreshToDb(BaseModel):
-    """Модель записи refresh токена в postgres."""
+    """Модель записи сессии в postgres."""
     user_id: UUID
     refresh_jti: str
     user_agent: str = Field(max_length=255)
@@ -91,9 +91,8 @@ class RefreshToDb(BaseModel):
 
 
 class RefreshDelDb(BaseModel):
-    """Модель удаления refresh токена из postgres."""
+    """Модель удаления сессии из postgres."""
     user_id: UUID
-    refresh_jti: str
     user_agent: str = Field(max_length=255)
 
 
