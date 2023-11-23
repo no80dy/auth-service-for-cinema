@@ -6,12 +6,11 @@ from http import HTTPStatus
 from typing import Annotated
 from datetime import datetime
 
-
 from async_fastapi_jwt_auth import AuthJWT
 from fastapi.security import HTTPBearer
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body
 
 from core.config import JWTSettings
 from schemas.entity import (
@@ -29,7 +28,7 @@ from schemas.entity import (
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
-from services.authentication import AuthenticationService, get_authentication_service
+from services.authorization import PermissionClaimsService, get_permission_claims_service
 
 
 MAX_SESSION_NUMBER = 5
@@ -52,17 +51,16 @@ def get_config():
     response_description='Информация об обновленном пользователе'
 )
 async def add_group(
-    user_id: UUID,
-    group_assign: GroupAssign,
-    user_service: UserPermissionsService = Depends(get_user_permissions_service),
-    authorize_service: AuthJWT = Depends(),
-    authentication_service: AuthenticationService = Depends(get_authentication_service),
-    authorization: str = Depends(security)
+    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+    group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
+    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+    authorize: Annotated[AuthJWT, Depends()],
+    access_token: Annotated[str, Depends(security)]
 ):
-    await authorize_service.jwt_required()
-    is_authorized = await authentication_service.required_permissions(
-        await authorize_service.get_jwt_subject(),
-        ['users.add_group']
+    await authorize.jwt_required(token=access_token)
+    is_authorized = await permission_claims_service.required_permissions(
+        await authorize.get_jwt_subject(), ['add_group']
     )
 
     if not is_authorized:
@@ -87,17 +85,16 @@ async def add_group(
     response_description='Информация о роли, записанной в базу данных'
 )
 async def delete_group(
-    user_id: UUID,
-    group_assign: GroupAssign,
-    user_service: UserPermissionsService = Depends(get_user_permissions_service),
-    authorize_service: AuthJWT = Depends(),
-    authentication_service: AuthenticationService = Depends(get_authentication_service),
-    authorization: str = Depends(security)
+    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+    group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
+    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+    authorize: Annotated[AuthJWT, Depends()],
+    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+    access_token: Annotated[str, Depends(security)]
 ):
-    await authorize_service.jwt_required()
-    is_authorized = await authentication_service.required_permissions(
-        await authorize_service.get_jwt_subject(),
-        ['users.delete_group']
+    await authorize.jwt_required(token=access_token)
+    is_authorized = await permission_claims_service.required_permissions(
+        await authorize.get_jwt_subject(), ['delete_group', ]
     )
 
     if not is_authorized:

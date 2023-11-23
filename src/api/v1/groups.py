@@ -15,7 +15,7 @@ from schemas.entity import (
 	GroupUpdate
 )
 from services.group import GroupService, get_group_service
-from services.authentication import AuthenticationService, get_authentication_service
+from services.authorization import PermissionClaimsService, get_permission_claims_service
 
 
 security = HTTPBearer()
@@ -31,14 +31,14 @@ router = APIRouter()
 )
 async def create_group(
 	group_create: Annotated[GroupCreate, Body(description='Шаблон для создания группы')],
-	group_service: GroupService = Depends(get_group_service),
-	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service),
-	authorization: str = Depends(security)
+	group_service: Annotated[GroupService, Depends(get_group_service)],
+	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+	authorize: Annotated[AuthJWT, Depends()],
+	access_token: Annotated[str, Depends(security)]
 ) -> GroupDetailView:
-	await authorize_service.jwt_required()
-	is_authorized = await authentication_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
+	await authorize.jwt_required(token=access_token)
+	is_authorized = await permission_claims_service.required_permissions(
+		await authorize.get_jwt_subject(),
 		['groups.create_group']
 	)
 
@@ -66,14 +66,14 @@ async def create_group(
 	response_description='Имена всех групп в базе данных'
 )
 async def read_groups(
-	group_service: GroupService = Depends(get_group_service),
-	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service),
-	authorization: str = Depends(security)
+	group_service: Annotated[GroupService, Depends(get_group_service)],
+	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+	authorize: Annotated[AuthJWT, Depends()],
+	access_token: Annotated[str, Depends(security)]
 ) -> list[GroupShortView]:
-	await authorize_service.jwt_required()
-	is_authorized = await authentication_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
+	await authorize.jwt_required(token=access_token)
+	is_authorized = await permission_claims_service.required_permissions(
+		await authorize.get_jwt_subject(),
 		['groups.read_groups']
 	)
 
@@ -93,14 +93,14 @@ async def read_groups(
 async def update_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_update: Annotated[GroupUpdate, Body(description='Шаблон для изменения группы')],
-	group_service: GroupService = Depends(get_group_service),
-	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service),
-	authorization: str = Depends(security)
+	group_service: Annotated[GroupService, Depends(get_group_service)],
+	authorize: Annotated[AuthJWT, Depends()],
+	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+	access_token: Annotated[str, Depends(security)]
 ) -> GroupDetailView:
-	await authorize_service.jwt_required()
-	is_authorized = await authentication_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
+	await authorize.jwt_required(token=access_token)
+	is_authorized = await permission_claims_service.required_permissions(
+		await authorize.get_jwt_subject(),
 		['groups.update_group']
 	)
 
@@ -128,14 +128,14 @@ async def update_group(
 )
 async def delete_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
-	group_service: GroupService = Depends(get_group_service),
-	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service),
-	authorization: str = Depends(security)
+	group_service: Annotated[GroupService, Depends(get_group_service)],
+	authorize: Annotated[AuthJWT, Depends()],
+	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+	access_token: Annotated[str, Depends(security)]
 ) -> JSONResponse:
-	await authorize_service.jwt_required()
-	is_authorized = await authentication_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
+	await authorize.jwt_required(token=access_token)
+	is_authorized = await permission_claims_service.required_permissions(
+		await authorize.get_jwt_subject(),
 		['groups.delete_group']
 	)
 

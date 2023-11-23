@@ -1,14 +1,12 @@
-import itertools
-
 from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.postgres import get_session
-from models.entity import Group, User
+from models.entity import User
 
 
-class AuthenticationService:
+class PermissionClaimsService:
 	def __init__(self, session: AsyncSession):
 		self.session = session
 
@@ -36,7 +34,7 @@ class AuthenticationService:
 		return False
 
 
-async def get_authentication_service(
-	db: AsyncSession = Depends(get_session)
-) -> AuthenticationService:
-	return AuthenticationService(db)
+async def get_permission_claims_service(
+	db: AsyncSession = Depends(get_session),
+) -> PermissionClaimsService:
+	return PermissionClaimsService(db)
