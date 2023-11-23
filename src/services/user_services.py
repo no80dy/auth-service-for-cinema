@@ -95,7 +95,6 @@ class UserService:
                 where(
                 User.id == data.user_id,
                     RefreshSession.user_agent == data.user_agent,
-                    RefreshSession.refresh_jti == data.refresh_jti,
                     RefreshSession.is_active.is_(True),
                 )
             result = await self.db.execute(stmt)
@@ -112,7 +111,6 @@ class UserService:
                 where(
                     User.id == data.user_id,
                     RefreshSession.user_agent == data.user_agent,
-                    RefreshSession.refresh_jti == data.refresh_jti,
                     RefreshSession.is_active.is_(True),
                 )
             await self.db.execute(stmt)

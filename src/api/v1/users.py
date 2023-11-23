@@ -6,12 +6,14 @@ from http import HTTPStatus
 from typing import Annotated
 from datetime import datetime
 
-from core.config import JWTSettings
+
 from async_fastapi_jwt_auth import AuthJWT
+from fastapi.security import HTTPBearer
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from fastapi import APIRouter, Depends, Header, HTTPException
 
+from core.config import JWTSettings
 from schemas.entity import (
     UserSighIn,
     UserLoginHistoryInDb,
@@ -30,6 +32,7 @@ from services.user import UserPermissionsService, get_user_permissions_service
 
 MAX_SESSION_NUMBER = 5
 
+security = HTTPBearer()
 router = APIRouter()
 
 
@@ -167,10 +170,12 @@ async def login(
     refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
 
     # защита от превышения максимально возможного количества сессий
+    # TODO:
     session_number = await user_service.count_refresh_sessions(user.id)
     if session_number > MAX_SESSION_NUMBER:
         # await del_all_refresh_sessions_in_db(user)
         pass
+
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
     refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
@@ -191,15 +196,10 @@ async def login(
     history = UserLoginHistoryInDb.model_validate_json(history_dto)
     await user_service.put_login_history_in_db(history)
 
-    # устанавливаем JWT куки в заголовок ответа
-    response = JSONResponse(content={
+    return JSONResponse(content={
         'access_token': access_token,
         'refresh_token': refresh_token
     })
-    await Authorize.set_access_cookies(access_token, response)
-    await Authorize.set_refresh_cookies(refresh_token, response)
-
-    return response
 
 
 @router.post(
@@ -212,6 +212,7 @@ async def logout(
         user_service: UserService = Depends(get_user_service),
         Authorize: AuthJWT = Depends(),
         user_agent: Annotated[str | None, Header()] = None,
+        authorization: str = Depends(security)
 ):
     """Выход пользователя из аккаунта."""
     if not user_agent:
@@ -239,17 +240,16 @@ async def logout(
     await user_service.put_logout_history_in_db(history)
 
     # удаляем сессию из таблицы refresh_sessions
-    await Authorize.jwt_refresh_token_required()
-    refresh_jti = decrypted_token['jti']
     session_dto = json.dumps({
         'user_id': user_id,
-        'refresh_jti': refresh_jti,
         'user_agent': user_agent,
     })
     session = RefreshDelDb.model_validate_json(session_dto)
     await user_service.del_refresh_session_in_db(session)
 
-    return JSONResponse(content='Выход осуществлен успешно')
+    return JSONResponse(content={
+        'msg': 'Выход осуществлен успешно'
+    })
 
 
 @router.post(
@@ -262,6 +262,7 @@ async def refresh(
         user_service: UserService = Depends(get_user_service),
         Authorize: AuthJWT = Depends(),
         user_agent: Annotated[str | None, Header()] = None,
+        authorization: str = Depends(security),
 ):
     """Обновление пары access и refresh токенов."""
     if not user_agent:
@@ -272,12 +273,10 @@ async def refresh(
 
     decrypted_token = await Authorize.get_raw_jwt()
     user_id = decrypted_token['user_id']
-    refresh_jti = decrypted_token['jti']
 
     # удаляем сессию из таблицы refresh_sessions
     session_dto = json.dumps({
         'user_id': user_id,
-        'refresh_jti': refresh_jti,
         'user_agent': user_agent,
     })
     session = RefreshDelDb.model_validate_json(session_dto)
@@ -294,10 +293,10 @@ async def refresh(
     refresh_token = await Authorize.create_refresh_token(subject=username, user_claims=user_id_claims)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    refresh_jti = await Authorize.get_jti(refresh_token)
+    new_refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
         'user_id': user_id,
-        'refresh_jti': refresh_jti,
+        'refresh_jti': new_refresh_jti,
         'user_agent': user_agent,
         'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
         'is_active': True
@@ -305,12 +304,7 @@ async def refresh(
     session = RefreshToDb.model_validate_json(session_dto)
     await user_service.put_refresh_session_in_db(session)
 
-    # устанавливаем новые JWT куки в заголовок ответа
-    response = JSONResponse(content={
+    return JSONResponse(content={
         'access_token': access_token,
         'refresh_token': refresh_token
     })
-    await Authorize.set_access_cookies(access_token, response)
-    await Authorize.set_refresh_cookies(refresh_token, response)
-
-    return response
