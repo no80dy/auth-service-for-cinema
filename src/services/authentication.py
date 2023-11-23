@@ -27,6 +27,9 @@ class AuthenticationService:
 			permissions_names_group = [permission.permission_name for permission in permissions_group]
 			permissions_names.extend(permissions_names_group)
 
+		if '*.*' in permissions_names:
+			return True
+
 		for user_permission in permissions_names:
 			if user_permission in permissions:
 				return True

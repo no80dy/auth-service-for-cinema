@@ -221,7 +221,12 @@ async def login(
     # устанавливаем JWT куки в заголовок ответа
     await Authorize.set_access_cookies(access_token)
     await Authorize.set_refresh_cookies(refresh_token)
-    return user
+    return UserInDB(
+        id=user.id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        groups=[group.id for group in user.groups]
+    )
 
 
 @router.post(
