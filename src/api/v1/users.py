@@ -175,11 +175,9 @@ async def login(
     refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
 
     # защита от превышения максимально возможного количества сессий
-    # TODO:
     session_number = await user_service.count_refresh_sessions(user.id)
     if session_number > MAX_SESSION_NUMBER:
-        # await del_all_refresh_sessions_in_db(user)
-        pass
+        await user_service.del_all_refresh_sessions_in_db(user)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
     refresh_jti = await Authorize.get_jti(refresh_token)
