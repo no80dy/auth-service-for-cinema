@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Path
+from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from async_fastapi_jwt_auth import AuthJWT
@@ -23,6 +24,7 @@ from services.authentication import (
 )
 
 
+security = HTTPBearer()
 router = APIRouter()
 
 
@@ -37,7 +39,8 @@ async def create_permission(
 	permission_create: Annotated[PermissionCreate, Body(description='Шаблон для создания привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> PermissionDetailView:
 
 	await authorize_service.jwt_required()
@@ -68,7 +71,8 @@ async def create_permission(
 async def read_permissions(
 	permission_service: PermissionService = Depends(get_permission_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> list[PermissionShortView]:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(
@@ -95,7 +99,8 @@ async def update_permission(
 	permission_upate: Annotated[PermissionUpdate, Body(description='Шаблон для обновления привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> PermissionDetailView:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(
@@ -133,7 +138,8 @@ async def delete_permission(
 	permission_id: Annotated[UUID, Path(description='Идентификатор привелегии')],
 	permission_service: PermissionService = Depends(get_permission_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> JSONResponse:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(

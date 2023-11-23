@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Body
+from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from async_fastapi_jwt_auth import AuthJWT
@@ -17,6 +18,7 @@ from services.group import GroupService, get_group_service
 from services.authentication import AuthenticationService, get_authentication_service
 
 
+security = HTTPBearer()
 router = APIRouter()
 
 
@@ -31,7 +33,8 @@ async def create_group(
 	group_create: Annotated[GroupCreate, Body(description='Шаблон для создания группы')],
 	group_service: GroupService = Depends(get_group_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> GroupDetailView:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(
@@ -65,7 +68,8 @@ async def create_group(
 async def read_groups(
 	group_service: GroupService = Depends(get_group_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> list[GroupShortView]:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(
@@ -91,7 +95,8 @@ async def update_group(
 	group_update: Annotated[GroupUpdate, Body(description='Шаблон для изменения группы')],
 	group_service: GroupService = Depends(get_group_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> GroupDetailView:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(
@@ -125,7 +130,8 @@ async def delete_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_service: GroupService = Depends(get_group_service),
 	authorize_service: AuthJWT = Depends(),
-	authentication_service: AuthenticationService = Depends(get_authentication_service)
+	authentication_service: AuthenticationService = Depends(get_authentication_service),
+	authorization: str = Depends(security)
 ) -> JSONResponse:
 	await authorize_service.jwt_required()
 	is_authorized = await authentication_service.required_permissions(

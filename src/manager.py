@@ -43,11 +43,11 @@ async def check_permission_name_exists(permission_name: str, session: AsyncSessi
 	return True if permission else False
 
 
-async def check_group_name_exists(group_name: str, session: AsyncSession):
+async def check_group_name_exists(group_name: str, session: AsyncSession) -> Group:
 	group = (await session.execute(
 		select(Group).where(Group.group_name == group_name)
 	)).unique().scalar()
-	return True if group else False
+	return group
 
 
 async def create_superuser():
@@ -62,7 +62,8 @@ async def create_superuser():
 			if not await check_permission_name_exists(SUPERUSER_PERMISSION_NAME, session):
 				permission = Permission(SUPERUSER_PERMISSION_NAME)
 				session.add(permission)
-			if not await check_group_name_exists(SUPERUSER_GROUP_NAME, session):
+			group = await check_group_name_exists(SUPERUSER_GROUP_NAME, session)
+			if not group:
 				group = Group(SUPERUSER_GROUP_NAME, [permission, ])
 				session.add(group)
 
