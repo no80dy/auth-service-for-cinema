@@ -159,10 +159,12 @@ async def login(
     if active_user_login:
         return JSONResponse(content='The user has already signed in from this user-agent')
 
+    # добавляем user_id в тела токенов
+    user_id_claims = {'user_id': str(user.id)}
+
     # создаем пару access и refresh токенов
-    # TODO: Записать поля с правами в тело токена?
-    access_token = await Authorize.create_access_token(subject=user.username)
-    refresh_token = await Authorize.create_refresh_token(subject=user.username)
+    access_token = await Authorize.create_access_token(subject=user.username, user_claims=user_id_claims)
+    refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
 
     # защита от превышения максимально возможного количества сессий
     session_number = await user_service.count_refresh_sessions(user.id)
@@ -192,6 +194,7 @@ async def login(
     # устанавливаем JWT куки в заголовок ответа
     await Authorize.set_access_cookies(access_token)
     await Authorize.set_refresh_cookies(refresh_token)
+
     return user
 
 
@@ -220,12 +223,11 @@ async def logout(
     # записываем текущий access токен в список невалидных токенов
     await user_service.token_handler.put_token_in_denylist(decrypted_token)
 
-    username = await Authorize.get_jwt_subject()
-    user = await user_service.get_user_by_username(username)
+    user_id = decrypted_token['user_id']
 
     # обновляем запись в таблицу истории выход из аккаунта
     history_dto = json.dumps({
-        'user_id': str(user.id),
+        'user_id': user_id,
         'user_agent': user_agent,
         'logout_at': datetime.now().isoformat()
     })
@@ -234,9 +236,9 @@ async def logout(
 
     # удаляем сессию из таблицы refresh_sessions
     await Authorize.jwt_refresh_token_required()
-    refresh_jti = (await Authorize.get_raw_jwt())['jti']
+    refresh_jti = decrypted_token['jti']
     session_dto = json.dumps({
-        'user_id': str(user.id),
+        'user_id': user_id,
         'refresh_jti': refresh_jti,
         'user_agent': user_agent,
     })
@@ -263,13 +265,13 @@ async def refresh(
     # проверяем наличие и валидность refresh токена
     await Authorize.jwt_refresh_token_required()
 
-    username = await Authorize.get_jwt_subject()
-    user = await user_service.get_user_by_username(username)
+    decrypted_token = await Authorize.get_raw_jwt()
+    user_id = decrypted_token['user_id']
+    refresh_jti = decrypted_token['jti']
 
     # удаляем сессию из таблицы refresh_sessions
-    refresh_jti = (await Authorize.get_raw_jwt())['jti']
     session_dto = json.dumps({
-        'user_id': str(user.id),
+        'user_id': user_id,
         'refresh_jti': refresh_jti,
         'user_agent': user_agent,
     })
@@ -281,14 +283,15 @@ async def refresh(
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail='Невалидный токен для данного устройства')
 
     # создаем пару access и refresh токенов
-    # TODO: Записать поля с правами в тело токена?
-    access_token = await Authorize.create_access_token(subject=user.username)
-    refresh_token = await Authorize.create_refresh_token(subject=user.username)
+    username = await Authorize.get_jwt_subject()
+    user_id_claims = {'user_id': user_id}
+    access_token = await Authorize.create_access_token(subject=username, user_claims=user_id_claims)
+    refresh_token = await Authorize.create_refresh_token(subject=username, user_claims=user_id_claims)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
     refresh_jti = await Authorize.get_jti(refresh_token)
     session_dto = json.dumps({
-        'user_id': str(user.id),
+        'user_id': user_id,
         'refresh_jti': refresh_jti,
         'user_agent': user_agent,
         'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),

@@ -86,6 +86,7 @@ class UserService:
             await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def check_if_session_exist(self, data: RefreshDelDb):
         """Проверяет существование сессии."""
@@ -97,7 +98,7 @@ class UserService:
                     RefreshSession.refresh_jti == data.refresh_jti,
                     RefreshSession.is_active.is_(True),
                 )
-            result =  await self.db.execute(stmt)
+            result = await self.db.execute(stmt)
             row = result.scalars().first()
             return True if row else False
         except Exception as e:
@@ -116,9 +117,9 @@ class UserService:
                 )
             await self.db.execute(stmt)
             await self.db.commit()
-
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
         """Записывает историю входа в аккаунт в базу данных."""
@@ -130,6 +131,7 @@ class UserService:
             await self.db.refresh(row)
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def check_if_user_login(self, data: UserLoginHistoryInDb) -> bool:
         """Проверяет существования активной записи о входе пользователя с данного устройства."""
@@ -161,6 +163,7 @@ class UserService:
             await self.db.commit()
         except Exception as e:
             logging.error(e)
+            await self.db.rollback()
 
     async def count_refresh_sessions(self, user_id: uuid.UUID) -> int:
         """Возвращает число открытых сессий пользователя."""
