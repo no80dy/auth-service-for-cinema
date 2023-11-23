@@ -27,6 +27,7 @@ from schemas.entity import (
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
+from services.authentication import AuthenticationService, get_authentication_service
 
 
 MAX_SESSION_NUMBER = 5
@@ -41,19 +42,31 @@ def get_config():
 
 
 @router.post(
-    '/{user_id}/role',
+    '/{user_id}/group',
     response_model=UserInDB,
     summary='Назначение роли пользователю',
     description='Выполняет добавление новой роли для пользователя',
     response_description='Информация об обновленном пользователе'
 )
-async def add_role(
-        user_id: UUID,
-        group_assign: GroupAssign,
-        user_service: UserPermissionsService = Depends(get_user_permissions_service)
+async def add_group(
+    user_id: UUID,
+    group_assign: GroupAssign,
+    user_service: UserPermissionsService = Depends(get_user_permissions_service),
+    authorize_service: AuthJWT = Depends(),
+    authentication_service: AuthenticationService = Depends(get_authentication_service)
 ):
+    await authorize_service.jwt_required()
+    is_authorized = await authentication_service.required_permissions(
+        await authorize_service.get_jwt_subject(),
+        ['users.add_group']
+    )
+
+    if not is_authorized:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
+
     group_assign_encoded = jsonable_encoder(group_assign)
     user = await user_service.add_role_to_user(user_id, group_assign_encoded)
+
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -63,17 +76,28 @@ async def add_role(
 
 
 @router.delete(
-    '/{user_id}/role',
+    '/{user_id}/group',
     response_model=UserInDB,
     summary='Создание роли',
     description='Выполняет создание новой роли',
     response_description='Информация о роли, записанной в базу данных'
 )
-async def delete_role(
-        user_id: UUID,
-        group_assign: GroupAssign,
-        user_service: UserPermissionsService = Depends(get_user_permissions_service)
+async def delete_group(
+    user_id: UUID,
+    group_assign: GroupAssign,
+    user_service: UserPermissionsService = Depends(get_user_permissions_service),
+    authorize_service: AuthJWT = Depends(),
+    authentication_service: AuthenticationService = Depends(get_authentication_service)
 ):
+    await authorize_service.jwt_required()
+    is_authorized = await authentication_service.required_permissions(
+        await authorize_service.get_jwt_subject(),
+        ['users.delete_group']
+    )
+
+    if not is_authorized:
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
+
     group_assign_encoded = jsonable_encoder(group_assign)
     user = await user_service.delete_role_from_user(user_id, group_assign_encoded)
     if not user:
