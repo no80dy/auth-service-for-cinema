@@ -39,7 +39,7 @@ class Group(Base):
 	__tablename__ = 'groups'
 
 	id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False)
-	group_name = Column(String(50), nullable=False)
+	group_name = Column(String(50), unique=True, nullable=False)
 	permissions = relationship(
 		'Permission',
 		secondary=groups_permissions_table,

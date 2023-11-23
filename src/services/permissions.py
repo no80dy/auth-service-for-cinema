@@ -13,6 +13,12 @@ class DatabaseSession:
 	def __init__(self, session: AsyncSession):
 		self.session = session
 
+	async def get_permission_by_name(self, permission_name: str):
+		permission = (await self.session.execute(
+			select(Permission).where(Permission.permission_name == permission_name)
+		)).unique().scalars().all()
+		return permission
+
 	async def add_permission(self, data: dict) -> Permission:
 		permission = Permission(**data)
 		self.session.add(permission)
@@ -63,6 +69,10 @@ class DatabaseSession:
 class PermissionService:
 	def __init__(self, session: DatabaseSession):
 		self.session = session
+
+	async def check_permission_exists(self, permission_name: str) -> bool:
+		permission = await self.session.get_permission_by_name(permission_name)
+		return True if permission else False
 
 	async def add_permission(
 		self,

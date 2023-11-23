@@ -50,6 +50,9 @@ async def create_permission(
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permission_create_encoded = jsonable_encoder(permission_create)
+	if await permission_service.check_permission_exists(permission_create_encoded['permission_name']):
+		raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Permission with this name already exists')
+
 	return await permission_service.add_permission(
 		permission_create_encoded
 	)
@@ -104,6 +107,9 @@ async def update_permission(
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permission_update_encoded = jsonable_encoder(permission_upate)
+	if await permission_service.check_permission_exists(permission_update_encoded['permission_name']):
+		raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Permission with this name already exists')
+
 	permission = await permission_service.update_permission(
 		permission_id, permission_update_encoded
 	)

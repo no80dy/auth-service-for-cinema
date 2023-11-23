@@ -43,6 +43,9 @@ async def create_group(
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	group_create_encoded = jsonable_encoder(group_create)
+	if await group_service.check_group_exists(group_create_encoded['group_name']):
+		raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Group with this name already exists')
+
 	group = await group_service.create_group(group_create_encoded)
 	if not group:
 		raise HTTPException(
@@ -100,6 +103,9 @@ async def update_group(
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	group_update_encoded = jsonable_encoder(group_update)
+	if await group_service.check_group_exists(group_update_encoded['group_name']):
+		raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Group with this name already exists')
+
 	group = await group_service.update_group(group_id, group_update_encoded)
 	if not group:
 		raise HTTPException(
