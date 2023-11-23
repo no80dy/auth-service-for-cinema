@@ -157,7 +157,7 @@ async def login(
     active_user_login = UserLoginHistoryInDb.model_validate_json(active_user_login_dto)
     active_user_login = await user_service.check_if_user_login(active_user_login)
     if active_user_login:
-        return JSONResponse(content='The user has already signed in from this user-agent')
+        return JSONResponse(content='Данный пользователь уже совершил вход с данного устройства')
 
     # добавляем user_id в тела токенов
     user_id_claims = {'user_id': str(user.id)}
@@ -192,10 +192,14 @@ async def login(
     await user_service.put_login_history_in_db(history)
 
     # устанавливаем JWT куки в заголовок ответа
-    await Authorize.set_access_cookies(access_token)
-    await Authorize.set_refresh_cookies(refresh_token)
+    response = JSONResponse(content={
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    })
+    await Authorize.set_access_cookies(access_token, response)
+    await Authorize.set_refresh_cookies(refresh_token, response)
 
-    return user
+    return response
 
 
 @router.post(
@@ -244,7 +248,8 @@ async def logout(
     })
     session = RefreshDelDb.model_validate_json(session_dto)
     await user_service.del_refresh_session_in_db(session)
-    return JSONResponse(content='Logout successfully')
+
+    return JSONResponse(content='Выход осуществлен успешно')
 
 
 @router.post(
@@ -301,7 +306,10 @@ async def refresh(
     await user_service.put_refresh_session_in_db(session)
 
     # устанавливаем новые JWT куки в заголовок ответа
-    response = JSONResponse(content='Tokens successfully refreshed')
+    response = JSONResponse(content={
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    })
     await Authorize.set_access_cookies(access_token, response)
     await Authorize.set_refresh_cookies(refresh_token, response)
 
