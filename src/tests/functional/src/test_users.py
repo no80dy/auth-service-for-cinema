@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import pytest
 
 
@@ -19,7 +21,7 @@ import pytest
 					"last_name": "string",
 					"groups": []
 				},
-				201
+				HTTPStatus.CREATED,
 		),
 	]
 )
@@ -55,7 +57,7 @@ async def test_registrations_user(
 				{
 					"detail": "Некорректное имя пользователя или пароль",
 				},
-				400
+				HTTPStatus.BAD_REQUEST,
 		),
 		(
 				{
@@ -69,7 +71,7 @@ async def test_registrations_user(
 				{
 					"detail": "Пользователь с данным email уже зарегистрирован",
 				},
-				400
+				HTTPStatus.BAD_REQUEST,
 		),
 	]
 )
@@ -108,7 +110,7 @@ async def test_negative_registrations_user(
 				{
 					"username": "string"
 				},
-				200
+				HTTPStatus.OK,
 		),
 		(
 				{
@@ -120,7 +122,7 @@ async def test_negative_registrations_user(
 				{
 					"detail": "Введены некорректные данные",
 				},
-				400
+				HTTPStatus.BAD_REQUEST,
 		),
 		(
 				{
@@ -132,7 +134,7 @@ async def test_negative_registrations_user(
 				{
 					"detail": "Введены некорректные данные",
 				},
-				400
+				HTTPStatus.BAD_REQUEST,
 		),
 	]
 )
@@ -156,3 +158,61 @@ async def test_change_password_user(
 
 	assert result.get('body') == expected_response
 	assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+	'expected_response, status_code',
+	[
+		(
+				[],
+				HTTPStatus.OK,
+		),
+	]
+)
+async def test_get_history_user_empty(
+	make_post_request,
+	make_get_request,
+	expected_response,
+	status_code,
+):
+	first_user = {
+		"username": "string",
+		"password": "stringst",
+		"repeated_password": "stringst",
+		"first_name": "string",
+		"last_name": "string",
+		"email": "string"
+	}
+	created_user = await make_post_request('users/signup', first_user)
+	user_id = created_user.get('body').get('id')
+	result = await make_get_request(f'users/{user_id}/get_history', {})
+
+	assert result.get('body') == expected_response
+	assert result.get('status') == status_code
+
+
+async def test_get_history_user(
+	make_post_request,
+	make_get_request,
+):
+	first_user = {
+		"username": "string",
+		"password": "stringst",
+		"repeated_password": "stringst",
+		"first_name": "string",
+		"last_name": "string",
+		"email": "string"
+	}
+	signin_data = {
+		"username": "string",
+		"password": "stringst",
+	}
+	created_user = await make_post_request('users/signup', first_user)
+	await make_post_request('users/signin', signin_data)
+	user_id = created_user.get('body').get('id')
+
+	result = await make_get_request(f'users/{user_id}/get_history', {})
+
+	assert len(result.get('body')) == 1
+	assert set(result.get('body')[0].keys()) == {'login_at', 'user_agent', 'user_id'}
+	assert result.get('status') == HTTPStatus.OK
