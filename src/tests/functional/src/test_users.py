@@ -8,6 +8,7 @@ import pytest
 				{
 					"username": "string",
 					"password": "stringst",
+					"repeated_password": "stringst",
 					"first_name": "string",
 					"last_name": "string",
 					"email": "string"
@@ -46,6 +47,7 @@ async def test_registrations_user(
 				{
 					"username": "string",  # попытка создать юзера с уже существующим в БД username
 					"password": "stringst",
+					"repeated_password": "stringst",
 					"first_name": "string",
 					"last_name": "string",
 					"email": "string"
@@ -59,6 +61,7 @@ async def test_registrations_user(
 				{
 					"username": "string1",
 					"password": "stringst",
+					"repeated_password": "stringst",
 					"first_name": "string",
 					"last_name": "string",
 					"email": "string"  # попытка создать юзера с уже существующим в БД email
@@ -79,6 +82,7 @@ async def test_negative_registrations_user(
 	first_user = {
 		"username": "string",
 		"password": "stringst",
+		"repeated_password": "stringst",
 		"first_name": "string",
 		"last_name": "string",
 		"email": "string"

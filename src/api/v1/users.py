@@ -98,8 +98,10 @@ async def create_user(
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_create)
 
+    repeated_pass_true = user_service.check_repeated_password(user_dto.get('password'), user_dto.get('password'))
+
     user_exist = await user_service.check_exist_user(user_dto)
-    if user_exist:
+    if not repeated_pass_true or user_exist:
         raise HTTPException(status_code=400, detail="Некорректное имя пользователя или пароль")
 
     user_email_unique = await user_service.check_unique_email(user_dto)
