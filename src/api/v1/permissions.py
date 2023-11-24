@@ -111,7 +111,10 @@ async def update_permission(
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permission_update_encoded = jsonable_encoder(permission_upate)
-	if await permission_service.check_permission_exists(permission_update_encoded['permission_name']):
+	if await permission_service.check_permission_name_duplicates(
+		permission_id,
+		permission_update_encoded['permission_name']
+	):
 		raise HTTPException(status_code=HTTPStatus.CONFLICT, detail='Permission with this name already exists')
 
 	permission = await permission_service.update_permission(
@@ -156,5 +159,6 @@ async def delete_permission(
 			detail='permission not found'
 		)
 	return JSONResponse(
+		status_code=HTTPStatus.OK,
 		content='deleted successfully'
 	)

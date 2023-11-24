@@ -1,8 +1,8 @@
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from db.postgres import get_session
 from models.entity import Permission
@@ -31,6 +31,22 @@ class DatabaseSession:
 	async def read_permissions(self) -> list[Permission]:
 		permissions = await self.session.execute(select(Permission))
 		return list(permissions.unique().scalars().all())
+
+	async def get_permission_name_duplicates(
+		self,
+		permission_id: UUID,
+		permission_name: str
+	) -> list[Permission]:
+		permission_duplicates = (await self.session.execute(
+			select(Permission).where(
+				and_(
+					Permission.id != permission_id,
+					Permission.permission_name == permission_name
+				)
+			)
+		)).scalars().all()
+
+		return list(permission_duplicates)
 
 	async def update_permission(
 		self,
@@ -91,6 +107,15 @@ class PermissionService:
 			PermissionShortView(permission_name=permission.permission_name)
 			for permission in permissions
 		]
+
+	async def check_permission_name_duplicates(
+		self,
+		permission_id: UUID,
+		permission_name: str
+	) -> bool:
+		if await self.session.get_permission_name_duplicates(permission_id, permission_name):
+			return True
+		return False
 
 	async def update_permission(
 		self,
