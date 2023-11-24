@@ -15,7 +15,7 @@ from .settings import test_settings
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from db.postgres import Base
-from models.entity import Permission, Group
+from models.entity import Permission, Group, User, RefreshSession, UserLoginHistory
 
 
 dsn = (
@@ -44,9 +44,9 @@ async def init_session() -> AsyncSession:
 
 @pytest_asyncio.fixture(scope='function', autouse=True)
 async def clean_up_database(init_session: AsyncSession):
-	for table in Base.metadata.tables.values():
+	for table in reversed(Base.metadata.sorted_tables):
 		await init_session.execute(table.delete())
-		await init_session.commit()
+	await init_session.commit()
 
 
 @pytest_asyncio.fixture(scope='function')
@@ -70,4 +70,60 @@ def write_groups_with_permissions_in_database(init_session: AsyncSession):
 		init_session.add_all(permissions)
 		init_session.add_all(groups)
 		await init_session.commit()
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+def fill_database(init_session: AsyncSession):
+	async def inner(permissions_names: list[str], groups_names: list[str], users_fillers: list[str]):
+		permissions = [Permission(permission_name) for permission_name in permissions_names]
+		groups = [Group(group_name, permissions) for group_name in groups_names]
+		users = [
+			User(user_filler, user_filler, user_filler, user_filler, user_filler)
+			for user_filler in users_fillers
+		]
+		init_session.add_all([permissions, groups, users])
+		await init_session.commit()
+		await init_session.refresh(permissions)
+		await init_session.refresh(groups)
+		await init_session.refresh(users)
+		return permissions, groups, users
+	return inner
+
+@pytest_asyncio.fixture(scope='function')
+def create_groups(init_session: AsyncSession):
+	async def inner(permissions_names: list[str]) -> list[Permission]:
+		permissions = [Permission(permission_name) for permission_name in permissions_names]
+		init_session.add_all(permissions)
+		await init_session.commit()
+		await init_session.refresh(permissions)
+		return permissions
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+def create_group_with_permissions(init_session: AsyncSession):
+	async def inner(group_name: str, permissions_names: list[str]):
+		permissions = [
+			Permission(permission_name) for permission_name in permissions_names
+		]
+		group = Group(group_name, permissions)
+		init_session.add_all(permissions)
+		init_session.add(group)
+		await init_session.commit()
+		await init_session.refresh(group)
+		return group
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+def create_superuser(init_session: AsyncSession):
+	async def inner(username: str, password: str):
+		permission = Permission('*.*')
+		group = Group('superuser', [permission, ])
+		user = User(username, password, username, username, username)
+		user.groups.append(group)
+		init_session.add_all([permission, group, user])
+		await init_session.commit()
+		await init_session.refresh(user)
 	return inner
