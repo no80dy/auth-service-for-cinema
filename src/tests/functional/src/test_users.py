@@ -93,3 +93,42 @@ async def test_negative_registrations_user(
 
 	assert result.get('body') == expected_response
 	assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+	'user_data, expected_response, status_code',
+	[
+		(
+				{
+					"username": "string",  # попытка создать юзера с уже существующим в БД username
+					"password": "stringst",
+					"repeated_old_password": "stringst",
+					"new_password": "new_password",
+				},
+				{
+					"username": "string"
+				},
+				200
+		),
+	]
+)
+async def test_positive_change_password_user(
+	make_post_request,
+	user_data,
+	expected_response,
+	status_code,
+):
+	first_user = {
+		"username": "string",
+		"password": "stringst",
+		"repeated_password": "stringst",
+		"first_name": "string",
+		"last_name": "string",
+		"email": "string"
+	}
+	await make_post_request('users/signup', first_user)
+
+	result = await make_post_request('users/change_password', user_data)
+
+	assert result.get('body') == expected_response
+	assert result.get('status') == status_code

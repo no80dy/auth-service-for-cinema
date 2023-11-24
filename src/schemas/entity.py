@@ -46,6 +46,16 @@ class GroupAssign(BaseModel):
     group_id: UUID
 
 
+class UserInDB(BaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    groups: list[UUID]
+
+    class Config:
+        from_attributes = True
+
+
 class UserSighIn(BaseModel):
     username: str = Field(max_length=255)
     password: str = Field(min_length=8, max_length=255)
@@ -56,16 +66,6 @@ class UserCreate(UserSighIn):
     first_name: str = Field(..., max_length=50)
     last_name: str = Field(..., max_length=50)
     email: str = Field(..., max_length=50)
-
-
-class UserInDB(BaseModel):
-    id: UUID
-    first_name: str
-    last_name: str
-    groups: list[UUID]
-
-    class Config:
-        from_attributes = True
 
 
 class UserChangePassword(UserSighIn):
