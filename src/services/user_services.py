@@ -52,6 +52,7 @@ class UserService:
     async def update_password(self, user_dto):
         user = User(**user_dto)
         if (
+                not await self.check_repeated_password(user_dto.get('password'), user_dto.get('repeated_old_password')) or
                 not await self._check_old_password(user_dto) or
                 user_dto.get('password') == user_dto.get('new_password')  # старый и новый пароль должны отличаться
         ):
@@ -65,10 +66,12 @@ class UserService:
 
         return user
 
-    async def _check_old_password(self, user_dto):
-        if not user_dto.get('password') == user_dto.get('repeaded_old_password'):
+    async def check_repeated_password(self, password, repeated_password):
+        if not password == repeated_password:
             return False
+        return True
 
+    async def _check_old_password(self, user_dto):
         result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
         user = result.scalars().first()
         old_pass_verified = check_password_hash(user.password, user_dto.get('password'))

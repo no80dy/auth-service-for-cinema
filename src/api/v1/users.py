@@ -98,8 +98,10 @@ async def create_user(
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_create)
 
+    repeated_pass_true = await user_service.check_repeated_password(user_dto.get('password'), user_dto.get('password'))
+
     user_exist = await user_service.check_exist_user(user_dto)
-    if user_exist:
+    if not repeated_pass_true or user_exist:
         raise HTTPException(status_code=400, detail="Некорректное имя пользователя или пароль")
 
     user_email_unique = await user_service.check_unique_email(user_dto)
@@ -113,19 +115,17 @@ async def create_user(
 @router.post(
     '/change_password/',
     response_model=UserResponseUsername,
-    status_code=HTTPStatus.CREATED
+    status_code=HTTPStatus.OK
 )
 async def change_password(
         user_change_password: UserChangePassword,
         user_service: UserService = Depends(get_user_service),
-        authorize: AuthJWT = Depends(),
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_change_password)
 
     updated_user = await user_service.update_password(user_dto)
     if updated_user:
         # при смене пароля разлогиниваем все устройства
-        await authorize.unset_jwt_cookies()
         user = await user_service.get_user_by_username(user_dto.get('username'))
         await user_service.del_all_refresh_sessions_in_db(user)
 
