@@ -1,3 +1,4 @@
+import logging
 import sys
 
 import pytest
@@ -8,9 +9,13 @@ from sqlalchemy.ext.asyncio import (
 	AsyncSession,
 	async_sessionmaker
 )
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from pathlib import Path
 
 from .settings import test_settings
+from models.entity import User, RefreshSession, UserLoginHistory
+
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
@@ -44,9 +49,10 @@ async def init_session() -> AsyncSession:
 
 @pytest_asyncio.fixture(scope='function', autouse=True)
 async def clean_up_database(init_session: AsyncSession):
-	for table in Base.metadata.tables.values():
+	for table in reversed(Base.metadata.sorted_tables):
 		await init_session.execute(table.delete())
 		await init_session.commit()
+
 
 
 @pytest_asyncio.fixture(scope='function')
@@ -70,4 +76,42 @@ def write_groups_with_permissions_in_database(init_session: AsyncSession):
 		init_session.add_all(permissions)
 		init_session.add_all(groups)
 		await init_session.commit()
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+async def create_fake_user_in_db(init_session: AsyncSession):
+	async def inner(fake_user: User) -> None:
+		try:
+			init_session.add(fake_user)
+			await init_session.commit()
+		except SQLAlchemyError as e:
+			logging.error(e)
+			await init_session.rollback()
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+async def create_fake_session_in_db(init_session: AsyncSession):
+	async def inner(fake_session: RefreshSession) -> None:
+		try:
+			init_session.add(fake_session)
+			await init_session.commit()
+
+		except SQLAlchemyError as e:
+			logging.error(e)
+			await init_session.rollback()
+	return inner
+
+
+@pytest_asyncio.fixture(scope='function')
+async def create_fake_history_in_db(init_session: AsyncSession):
+	async def inner(fake_history: UserLoginHistory) -> None:
+		try:
+			init_session.add(fake_history)
+			await init_session.commit()
+
+		except SQLAlchemyError as e:
+			logging.error(e)
+			await init_session.rollback()
 	return inner

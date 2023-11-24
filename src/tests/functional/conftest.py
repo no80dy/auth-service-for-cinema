@@ -27,4 +27,5 @@ async def redis_client() -> Redis:
 pytest_plugins = [
 	'tests.functional.api_fixtures',
 	'tests.functional.postgres_fixtures',
+	'tests.functional.jwt_fixtures',
 ]
