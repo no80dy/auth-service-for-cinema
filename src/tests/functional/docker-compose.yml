@@ -12,7 +12,7 @@ services:
   database:
     image: postgres:latest
     env_file:
-      - ./.env.tests
+      - ./tests.env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     image: fastapi-image
     env_file:
-      - .env.tests
+      - tests.env
     depends_on:
       - database
       - redis
@@ -34,7 +34,7 @@ services:
   tests:
     image: fastapi-image
     env_file:
-      - .env.tests
+      - tests.env
     entrypoint: >
       sh -c "python3 /app/tests/functional/utils/wait_for_redis.py
       && python3 /app/tests/functional/utils/wait_for_postgres.py
