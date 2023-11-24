@@ -110,9 +110,33 @@ async def test_negative_registrations_user(
 				},
 				200
 		),
+		(
+				{
+					"username": "string",
+					"password": "stringst",
+					"repeated_old_password": "stringst_dont_right",  # несовпадающий пароль
+					"new_password": "new_password",
+				},
+				{
+					"detail": "Введены некорректные данные",
+				},
+				400
+		),
+		(
+				{
+					"username": "string",
+					"password": "stringst",
+					"repeated_old_password": "stringst",
+					"new_password": "stringst",  # новый пароль совпадает со старым
+				},
+				{
+					"detail": "Введены некорректные данные",
+				},
+				400
+		),
 	]
 )
-async def test_positive_change_password_user(
+async def test_change_password_user(
 	make_post_request,
 	user_data,
 	expected_response,
