@@ -8,7 +8,7 @@ Base: DeclarativeBase = declarative_base()
 dsn = (
 	f'{settings.POSTGRES_SCHEME}://{settings.POSTGRES_USER}:'
 	f'{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:'
-	f'{settings.POSTGRES_PORT}/{settings.POSTGRES_DB_NAME}'
+	f'{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}'
 )
 engine = create_async_engine(dsn, echo=True, future=True)
 

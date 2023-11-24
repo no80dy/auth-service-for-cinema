@@ -21,7 +21,7 @@ from models.entity import Permission, Group
 dsn = (
 	f'{test_settings.POSTGRES_SCHEME}://{test_settings.POSTGRES_USER}:'
 	f'{test_settings.POSTGRES_PASSWORD}@{test_settings.POSTGRES_HOST}:'
-	f'{test_settings.POSTGRES_PORT}/{test_settings.POSTGRES_DB_NAME}'
+	f'{test_settings.POSTGRES_PORT}/{test_settings.POSTGRES_DB}'
 )
 engine = create_async_engine(dsn, echo=True, future=True)
 async_session = async_sessionmaker(

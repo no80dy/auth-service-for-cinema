@@ -12,7 +12,7 @@ services:
   database:
     image: postgres:latest
     env_file:
-      - ./tests.env
+      - ./.env.tests
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     image: fastapi-image
     env_file:
-      - ./tests.env
+      - .env.tests
     depends_on:
       - database
       - redis
@@ -34,10 +34,9 @@ services:
   tests:
     image: fastapi-image
     env_file:
-      - ./tests.env
+      - .env.tests
     entrypoint: >
-      sh -c "pip install --no-cache-dir -r /app/tests/functional/requirements.txt
-      && python3 /app/tests/functional/utils/wait_for_redis.py
+      sh -c "python3 /app/tests/functional/utils/wait_for_redis.py
       && python3 /app/tests/functional/utils/wait_for_postgres.py
       && python3 -m pytest --setup-show -vv -W ignore::DeprecationWarning /app/tests/functional/src"
 
