@@ -321,10 +321,12 @@ async def refresh(
     session = RefreshToDb.model_validate_json(session_dto)
     await user_service.put_refresh_session_in_db(session)
 
-    return JSONResponse(content={
-        'access_token': access_token,
-        'refresh_token': refresh_token,
-    })
+    return JSONResponse(
+        status_code=HTTPStatus.OK,
+        content={
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        })
 
 
 @router.get(

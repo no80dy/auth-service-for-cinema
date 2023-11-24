@@ -97,6 +97,7 @@ async def create_fake_session_in_db(init_session: AsyncSession):
 		try:
 			init_session.add(fake_session)
 			await init_session.commit()
+			await init_session.refresh(fake_session)
 
 		except SQLAlchemyError as e:
 			logging.error(e)
@@ -110,6 +111,7 @@ async def create_fake_history_in_db(init_session: AsyncSession):
 		try:
 			init_session.add(fake_history)
 			await init_session.commit()
+			await init_session.refresh(fake_history)
 
 		except SQLAlchemyError as e:
 			logging.error(e)

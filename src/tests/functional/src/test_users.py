@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime
 from http import HTTPStatus
 
 from models.entity import User, RefreshSession, UserLoginHistory
@@ -210,7 +211,6 @@ async def test_negative2_signin_user(
         last_name='Stone'
     )
     await create_fake_user_in_db(fake_user)
-
     await make_post_request('users/signin', user_data)
     result = await make_post_request('users/signin', user_data)
 
@@ -231,51 +231,143 @@ async def test_negative2_signin_user(
     ]
 )
 async def test_logout_user(
-        create_fake_tokens,
-        create_fake_user_in_db,
-        create_fake_session_in_db,
-        create_fake_history_in_db,
+        create_fake_login,
         make_post_request,
         expected_response,
         status_code,
 ):
-    # Подготовка окружения
-    fake_user_agent = 'fake-user-agent'
-    fake_user = User(
-        id='cf02ca78-9a5c-4d18-9ea9-682e1b0cc0da',
-        username='fake-user',
-        password='123456789',
-        email='foo@example.com',
-        first_name='Aliver',
-        last_name='Stone'
-    )
-    await create_fake_user_in_db(fake_user)
-
-    fake_user_history = UserLoginHistory(
-        user_id=fake_user.id,
-        user_agent=fake_user_agent,
-
-    )
-    await create_fake_history_in_db(fake_user_history)
-
-    fake_tokens = await create_fake_tokens(str(fake_user.id), fake_user.username)
-    fake_user_session = RefreshSession(
-        user_id=fake_user.id,
-        refresh_jti=fake_tokens['decrypted_refresh_token']['jti'],
-        expired_at=fake_tokens['decrypted_refresh_token']['exp'],
-        user_agent=fake_user_agent,
-        is_active=True,
-    )
-    await create_fake_session_in_db(fake_user_session)
-
+    fake_data = await create_fake_login()
     result = await make_post_request(
         'users/logout',
         headers={
-            'Authorization': f'Bearer {fake_tokens["access_token"]}',
-            'User-Agent': fake_user_agent,
+            'Authorization': f'Bearer {fake_data["access_token"]}',
+            'User-Agent': fake_data['user_agent'],
         }
     )
 
     assert result.get('body').keys() == expected_response.keys()
     assert result.get('body') == expected_response
+    assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+    'expected_response, status_code',
+    [
+        (
+            {
+                'detail': 'Only access tokens are allowed'
+            },
+            HTTPStatus.UNPROCESSABLE_ENTITY
+        ),
+    ]
+)
+async def test_negative1_logout_user(
+        create_fake_login,
+        make_post_request,
+        expected_response,
+        status_code,
+):
+    fake_data = await create_fake_login()
+    result = await make_post_request(
+        'users/logout',
+        headers={
+            'Authorization': f'Bearer {fake_data["refresh_token"]}',
+            'User-Agent': fake_data['user_agent'],
+        }
+    )
+
+    assert result.get('body').keys() == expected_response.keys()
+    assert result.get('body') == expected_response
+    assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+    'expected_response, status_code',
+    [
+        (
+            {
+                'detail': 'Not authenticated'
+            },
+            HTTPStatus.FORBIDDEN
+        ),
+    ]
+)
+async def test_negative2_logout_user(
+        create_fake_login,
+        make_post_request,
+        expected_response,
+        status_code,
+):
+    fake_data = await create_fake_login()
+    result = await make_post_request(
+        'users/logout',
+        headers={
+            'Authorization': '',
+            'User-Agent': fake_data['user_agent'],
+        }
+    )
+
+    assert result.get('body').keys() == expected_response.keys()
+    assert result.get('body') == expected_response
+    assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+    'expected_response, status_code',
+    [
+        (
+            {
+                'access_token': '',
+                'refresh_token': '',
+            },
+            HTTPStatus.OK
+        ),
+    ]
+)
+async def test_refresh_tokens(
+        create_fake_login,
+        make_post_request,
+        expected_response,
+        status_code,
+):
+    fake_data = await create_fake_login()
+    result = await make_post_request(
+        'users/refresh-tokens',
+        headers={
+            'Authorization': f'Bearer {fake_data["refresh_token"]}',
+            'User-Agent': fake_data['user_agent'],
+        }
+    )
+
+    assert result.get('body').keys() == expected_response.keys()
+    assert result.get('status') == status_code
+
+
+@pytest.mark.parametrize(
+    'expected_response, status_code',
+    [
+        (
+            {
+                'detail': 'Only refresh tokens are allowed',
+            },
+            HTTPStatus.UNPROCESSABLE_ENTITY
+        ),
+    ]
+)
+async def test_negative_refresh_tokens(
+        create_fake_login,
+        make_post_request,
+        expected_response,
+        status_code,
+):
+    fake_data = await create_fake_login()
+    result = await make_post_request(
+        'users/refresh-tokens',
+        headers={
+            'Authorization': f'Bearer {fake_data["access_token"]}',
+            'User-Agent': fake_data['user_agent'],
+        }
+    )
+
+    assert result.get('body').keys() == expected_response.keys()
     assert result.get('status') == status_code
