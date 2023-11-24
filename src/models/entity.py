@@ -134,7 +134,7 @@ class RefreshSession(Base):
 		self.is_active = is_active
 
 	def __repr__(self) -> str:
-		return f'<User: {self.username} Token: {self.refresh_jti} SignIn: {self.created_at}>'
+		return f'<User: {self.user_id} Token: {self.refresh_jti} SignIn: {self.created_at}>'
 
 
 class UserLoginHistory(Base):
