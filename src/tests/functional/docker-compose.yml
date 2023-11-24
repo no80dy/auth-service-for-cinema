@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     image: fastapi-image
     env_file:
-      - ./tests.env
+      - tests.env
     depends_on:
       - database
       - redis
@@ -34,12 +34,11 @@ services:
   tests:
     image: fastapi-image
     env_file:
-      - ./tests.env
+      - tests.env
     entrypoint: >
-      sh -c "pip install --no-cache-dir -r /app/tests/functional/requirements.txt
-      && python3 /app/tests/functional/utils/wait_for_redis.py
+      sh -c "python3 /app/tests/functional/utils/wait_for_redis.py
       && python3 /app/tests/functional/utils/wait_for_postgres.py
-      && python3 -m pytest --setup-show -vv -W ignore::DeprecationWarning /app/tests/functional/src"
+      && python3 -m pytest --setup-show -vvs -W ignore::DeprecationWarning /app/tests/functional/src"
 
 volumes:
   pgdata:

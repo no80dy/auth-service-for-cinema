@@ -121,8 +121,10 @@ async def create_user(
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_create)
 
+    repeated_pass_true = await user_service.check_repeated_password(user_dto.get('password'), user_dto.get('password'))
+
     user_exist = await user_service.check_exist_user(user_dto)
-    if user_exist:
+    if not repeated_pass_true or user_exist:
         raise HTTPException(status_code=400, detail="Некорректное имя пользователя или пароль")
 
     user_email_unique = await user_service.check_unique_email(user_dto)
@@ -136,19 +138,17 @@ async def create_user(
 @router.post(
     '/change_password/',
     response_model=UserResponseUsername,
-    status_code=HTTPStatus.CREATED
+    status_code=HTTPStatus.OK
 )
 async def change_password(
         user_change_password: UserChangePassword,
         user_service: UserService = Depends(get_user_service),
-        authorize: AuthJWT = Depends(),
 ) -> UserInDB | HTTPException:
     user_dto = jsonable_encoder(user_change_password)
 
     updated_user = await user_service.update_password(user_dto)
     if updated_user:
         # при смене пароля разлогиниваем все устройства
-        await authorize.unset_jwt_cookies()
         user = await user_service.get_user_by_username(user_dto.get('username'))
         await user_service.del_all_refresh_sessions_in_db(user)
 
@@ -173,12 +173,18 @@ async def login(
 ):
     """Вход пользователя в аккаунт."""
     if not user_agent:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail='Вы пытаетесь зайти с неизвестного устройства'
+        )
 
     # проверяем валидность имени пользователя и пароля
     user = await user_service.get_user_by_username(user_signin.username)
     if not user or not user.check_password(user_signin.password):
-        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail="Неверное имя пользователя или пароль")
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail="Неверное имя пользователя или пароль"
+        )
 
     # проверяем, что пользователь уже не вошел с данного устройства
     active_user_login_dto = json.dumps({
@@ -188,7 +194,9 @@ async def login(
     active_user_login = UserLoginHistoryInDb.model_validate_json(active_user_login_dto)
     active_user_login = await user_service.check_if_user_login(active_user_login)
     if active_user_login:
-        return JSONResponse(content='Данный пользователь уже совершил вход с данного устройства')
+        return JSONResponse(
+            status_code=HTTPStatus.BAD_REQUEST,
+            content={'detail': 'Данный пользователь уже совершил вход с данного устройства'})
 
     # добавляем user_id в тела токенов
     user_id_claims = {'user_id': str(user.id)}
@@ -273,9 +281,9 @@ async def logout(
     session = RefreshDelDb.model_validate_json(session_dto)
     await user_service.del_refresh_session_in_db(session)
 
-    return JSONResponse(content={
-        'msg': 'Выход осуществлен успешно'
-    })
+    return JSONResponse(
+        status_code=HTTPStatus.OK,
+        content={'detail': 'Выход осуществлен успешно'})
 
 
 @router.post(
@@ -292,7 +300,10 @@ async def refresh(
 ):
     """Обновление пары access и refresh токенов."""
     if not user_agent:
-        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Вы пытаетесь зайти с неизвестного устройства')
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail='Вы пытаетесь зайти с неизвестного устройства',
+        )
 
     # проверяем наличие и валидность refresh токена
     await Authorize.jwt_refresh_token_required()
@@ -310,7 +321,10 @@ async def refresh(
     if session_exist:
         await user_service.del_refresh_session_in_db(session)
     else:
-        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED, detail='Невалидный токен для данного устройства')
+        raise HTTPException(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            detail='Невалидный токен для данного устройства',
+        )
 
     # создаем пару access и refresh токенов
     username = await Authorize.get_jwt_subject()
@@ -330,10 +344,12 @@ async def refresh(
     session = RefreshToDb.model_validate_json(session_dto)
     await user_service.put_refresh_session_in_db(session)
 
-    return JSONResponse(content={
-        'access_token': access_token,
-        'refresh_token': refresh_token
-    })
+    return JSONResponse(
+        status_code=HTTPStatus.OK,
+        content={
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        })
 
 
 @router.get(
