@@ -1,13 +1,5 @@
-import sys
 import uuid
-from pathlib import Path
-
 import pytest
-from sqlalchemy import select
-
-sys.path.append(str(Path(__file__).resolve().parents[3]))
-
-from models.entity import User, Group, Permission
 
 
 HTTP_422 = 422
@@ -15,56 +7,53 @@ HTTP_404 = 404
 HTTP_200 = 200
 
 
-async def test_postgres_connections(
-	init_session
-):
-	user = User(
-		username='fake-user',
-		password='123456789',
-		email='foo@example.com',
-		first_name='Aliver',
-		last_name='Stone'
-	)
-	init_session.add(user)
-	await init_session.commit()
-	await init_session.refresh(user)
-
-	users = (await init_session.execute(select(User))).unique().scalars().all()
-	assert len(users) == 1
-
-
 @pytest.mark.parametrize(
 	'group_create, expected_response',
 	[
 		(
 			{
-				'group_name': 'admin',
-				'permissions': ['create', 'update']
+				'group_name': 'new_group',
+				'permissions': ['create', 'update', ]
 			},
 			{
-				'group_name': 'admin',
-				'permissions': [
-					{'permission_name': 'create'},
-					{'permission_name': 'update'},
-				]
+				'status': HTTP_200,
+				'body': {
+					'group_name': 'new_group',
+					'permissions': [
+						{'permission_name': 'create'},
+						{'permission_name': 'update'},
+					]
+				}
 			}
 		),
 	]
 )
-async def test_create_group_without_positive(
-	write_groups_with_permissions_in_database,
+async def test_create_group(
+	create_superuser,
 	make_post_request,
 	group_create,
 	expected_response
 ):
-	await write_groups_with_permissions_in_database(
-		['admin', 'guest', 'subscriber'], ['create', 'update']
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	for permission_name in group_create['permissions']:
+		await make_post_request(
+			'permissions/',
+			{'permission_name': permission_name},
+			{'Authorization': f'Bearer {access_token}'}
+		)
+
+	result = await make_post_request(
+		'groups/',
+		group_create,
+		{'Authorization': f'Bearer {access_token}'}
 	)
 
-	result = await make_post_request('groups/', group_create)
-
-	assert result['body']['group_name'] == expected_response['group_name']
-	assert result['body']['permissions'] == expected_response['permissions']
+	assert result['status'] == expected_response['status']
+	assert result['body']['group_name'] == expected_response['body']['group_name']
+	assert result['body']['permissions'] == expected_response['body']['permissions']
 
 
 @pytest.mark.parametrize(
@@ -72,17 +61,8 @@ async def test_create_group_without_positive(
 	[
 		(
 			{
-				'group_name': 'superuser',
-			 	'permissions': []
-			},
-			{
-				'status': HTTP_200
-			}
-		),
-		(
-			{
-				'group_name': 'admin',
-				'permissions': ['delete']
+				'group_name': 'new_group',
+				'permissions': ['new_permission', ]
 			},
 			{
 				'status': HTTP_404
@@ -96,93 +76,288 @@ async def test_create_group_without_positive(
 			{
 				'status': HTTP_422
 			}
+		),
+		(
+			{
+				'group_name': 123,
+				'permissions': []
+			},
+			{
+				'status': HTTP_422
+			}
 		)
 	]
 )
-async def test_create_group_negative(
-	write_groups_with_permissions_in_database,
+async def test_create_group_with_incorrect_data(
+	create_superuser,
 	make_post_request,
 	group_create,
 	expected_response
 ):
-	await write_groups_with_permissions_in_database(
-		['admin', 'guest', 'subscriber'], ['create', 'update']
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	result = await make_post_request(
+		'groups/',
+		group_create,
+		{'Authorization': f'Bearer {access_token}'}
 	)
-	result = await make_post_request('groups/', group_create)
 
 	assert result['status'] == expected_response['status']
 
 
 @pytest.mark.parametrize(
-	'database_request_data, expected_response',
+	'group_data, expected_response',
 	[
 		(
 			{
-				'groups_names': ['admin', 'guest', 'subscriber'],
-				'permissions_names': ['create', 'update']
+				'groups': [
+					{
+						'group_name': f'new_group_{index}',
+						'permissions': ['new_permission', ]
+					}
+					for index in range(20)
+				],
 			},
 			{
 				'status': HTTP_200,
-				'length': 3
+				'length': 21
 			}
 		),
 		(
 			{
-				'groups_names': [],
-				'permissions_names': []
+				'groups': [
+					{
+						'group_name': f'new_group_{index}',
+						'permissions': 'new_permission'
+					}
+					for index in range(1)
+				],
 			},
 			{
 				'status': HTTP_200,
-				'length': 0
+				'length': 1
 			}
 		),
 	]
 )
-async def test_read_groups_positive(
-	write_groups_with_permissions_in_database,
+async def test_read_groups(
+	create_superuser,
+	make_post_request,
 	make_get_request,
-	database_request_data,
+	group_data,
 	expected_response
 ):
-	await write_groups_with_permissions_in_database(
-		database_request_data['groups_names'],
-		database_request_data['permissions_names']
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	for group in group_data['groups']:
+		await make_post_request(
+			'permissions/',
+			{'permission_name': group['permissions'][0]},
+			{'Authorization': f'Bearer {access_token}'}
+		)
+
+	for group in group_data['groups']:
+		await make_post_request(
+			'groups/',
+			group,
+			{'Authorization': f'Bearer {access_token}'}
+		)
+
+	result = await make_get_request(
+		'groups/',
+		{},
+		{'Authorization': f'Bearer {access_token}'}
 	)
-	result = await make_get_request('groups/', {})
 
 	assert len(result['body']) == expected_response['length']
 	assert result['status'] == expected_response['status']
 
 
-# @pytest.mark.parametrize(
-# 	'group_update, expected_response',
-# 	[
-# 		(
-# 			{
-# 				'group_name': 'admin',
-# 				'permissions': []
-# 			},
-# 			{
-# 				'status': HTTP_200,
-# 				'group_name': ''
-# 			}
-# 		)
-# 	]
-# )
-# async def test_update_group(
-# 	wtite_permissions_in_database,
-# 	make_put_request,
-# 	init_session,
-# 	group_update,
-# 	expected_response
-# ):
-# 	await wtite_permissions_in_database()
-#
-# 	group = Group('guest', permissions)
-# 	init_session.add(group)
-# 	await init_session.commit()
-# 	await init_session.refresh(group)
-#
-# 	result = await make_put_request(f'groups/{group.id}', group_update)
-#
+@pytest.mark.parametrize(
+	'group_update, expected_response',
+	[
+		(
+			{
+				'group_name': 'new_group',
+				'permissions': ['create', ]
+			},
+			{
+				'status': HTTP_200,
+				'group_name': 'new_group',
+				'permissions': [
+					{'permission_name': 'create'},
+				]
+			}
+		)
+	]
+)
+async def test_update_group(
+	make_post_request,
+	create_superuser,
+	make_put_request,
+	group_update,
+	expected_response
+):
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
 
+	for permission in group_update['permissions']:
+		await make_post_request(
+			'permissions/',
+			{'permission_name': permission},
+			{'Authorization': f'Bearer {access_token}'}
+		)
+
+	group = await make_post_request(
+		'groups/',
+		group_update,
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	group_id = group['body']['id']
+	result = await make_put_request(
+		f'groups/{group_id}',
+		group_update,
+		{'Authorization': f'Bearer {access_token}'}
+	)
+	assert result['body']['group_name'] == expected_response['group_name']
+	assert result['body']['permissions'] == expected_response['permissions']
+
+
+@pytest.mark.parametrize(
+	'group_update, expected_response',
+	[
+		(
+			{
+				'group_name': 'new_group',
+				'permissions': ['new_permission', ]
+			},
+			{
+				'status': HTTP_404
+			}
+		),
+		(
+			{
+				'group_name': None,
+				'permissions': []
+			},
+			{
+				'status': HTTP_422
+			}
+		),
+		(
+			{
+				'group_name': 12345,
+				'permissions': []
+			},
+			{
+				'status': HTTP_422
+			}
+		)
+	]
+)
+async def test_update_group_with_incorrect_data(
+	create_superuser,
+	make_post_request,
+	make_put_request,
+	group_update,
+	expected_response
+):
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	group = await make_post_request(
+		'groups/',
+		{'group_name': 'old_group', 'permissions':  []},
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	group_id = group['body']['id']
+	result = await make_put_request(
+		f'groups/{group_id}',
+		group_update,
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	assert result['status'] == expected_response['status']
+
+
+@pytest.mark.parametrize(
+	'group_delete, expected_response',
+	[
+		(
+			{
+				'group_name': 'new_group',
+				'permissions': []
+			},
+			{
+				'status': HTTP_200,
+				'content': 'deleted successfully'
+			}
+		)
+	]
+)
+async def test_delete_group(
+	create_superuser,
+	make_post_request,
+	make_delete_request,
+	group_delete,
+	expected_response
+):
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	group = await make_post_request(
+		'groups/',
+		group_delete,
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	group_id = group['body']['id']
+	result = await make_delete_request(
+		f'groups/{group_id}',
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	assert result['status'] == expected_response['status']
+	assert result['body'] == expected_response['content']
+
+
+@pytest.mark.parametrize(
+	'group_delete, expected_response',
+	[
+		(
+			{
+				'group_id': uuid.uuid4()
+			},
+			{
+				'status': HTTP_404,
+			}
+		)
+	]
+)
+async def test_delete_group_does_not_exists(
+	create_superuser,
+	make_post_request,
+	make_delete_request,
+	group_delete,
+	expected_response
+):
+	await create_superuser('superuser', 'password123')
+	result = await make_post_request(f'users/signin', {'username': 'superuser', 'password': 'password123'})
+	access_token = result['body']['access_token']
+
+	group_id = group_delete['group_id']
+	result = await make_delete_request(
+		f'groups/{group_id}',
+		{'Authorization': f'Bearer {access_token}'}
+	)
+
+	assert result['status'] == expected_response['status']

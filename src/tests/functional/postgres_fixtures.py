@@ -20,7 +20,7 @@ from models.entity import User, RefreshSession, UserLoginHistory
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from db.postgres import Base
-from models.entity import Permission, Group
+from models.entity import Permission, Group, User, RefreshSession, UserLoginHistory
 
 
 dsn = (
@@ -51,31 +51,20 @@ async def init_session() -> AsyncSession:
 async def clean_up_database(init_session: AsyncSession):
 	for table in reversed(Base.metadata.sorted_tables):
 		await init_session.execute(table.delete())
-		await init_session.commit()
+	await init_session.commit()
 
 
 
 @pytest_asyncio.fixture(scope='function')
-def write_groups_without_permissions_in_database(init_session: AsyncSession):
-	async def inner(groups_names: list[str]):
-		for group_name in groups_names:
-			init_session.add(Group(group_name, []))
+def create_superuser(init_session: AsyncSession):
+	async def inner(username: str, password: str):
+		permission = Permission('*.*')
+		group = Group('superuser', [permission, ])
+		user = User(username, password, username, username, username)
+		user.groups.append(group)
+		init_session.add_all([permission, group, user])
 		await init_session.commit()
-	return inner
-
-
-@pytest_asyncio.fixture(scope='function')
-def write_groups_with_permissions_in_database(init_session: AsyncSession):
-	async def inner(groups_names: list[str], permissions_names: list[str]):
-		permissions = [
-			Permission(permission_name) for permission_name in permissions_names
-		]
-		groups = [
-			Group(group_name, permissions) for group_name in groups_names
-		]
-		init_session.add_all(permissions)
-		init_session.add_all(groups)
-		await init_session.commit()
+		await init_session.refresh(user)
 	return inner
 
 

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 	POSTGRES_PASSWORD: str
 	POSTGRES_HOST: str = 'localhost'
 	POSTGRES_PORT: int = 5432
-	POSTGRES_DB: str = 'users_database'
+	POSTGRES_DB: str = 'users'
 	POSTGRES_USER: str = 'postgres'
 	POSTGRES_SCHEME: str = 'postgresql+asyncpg'
 

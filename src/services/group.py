@@ -13,6 +13,12 @@ class DatabaseSession:
 	def __init__(self, session: AsyncSession):
 		self.session = session
 
+	async def get_group_by_group_name(self, group_name: str):
+		group = (await self.session.execute(
+			select(Group).where(Group.group_name == group_name)
+		)).scalars().first()
+		return group
+
 	async def delete_group(
 		self,
 		group_id: UUID
@@ -89,6 +95,10 @@ class DatabaseSession:
 class GroupService:
 	def __init__(self, session: DatabaseSession):
 		self.session = session
+
+	async def check_group_exists(self, group_name: str) -> bool:
+		group = await self.session.get_group_by_group_name(group_name)
+		return True if group else False
 
 	async def create_group(
 		self,
