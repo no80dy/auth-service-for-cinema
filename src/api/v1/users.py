@@ -10,7 +10,7 @@ from async_fastapi_jwt_auth import AuthJWT
 from fastapi.security import HTTPBearer
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body, Query
 
 from core.config import JWTSettings
 from schemas.entity import (
@@ -359,8 +359,10 @@ async def refresh(
 )
 async def get_history(
         user_id: UUID,
+        page_size: int = Query(ge=1, default=1),
+        page_number: int = Query(ge=1, default=1),
         user_service: UserService = Depends(get_user_service),
 ):
-    history = await user_service.get_login_history(user_id)
+    history = await user_service.get_login_history(user_id, page_size, page_number)
     return history
 
