@@ -359,7 +359,7 @@ async def refresh(
 )
 async def get_history(
         user_id: UUID,
-        page_size: int = Query(ge=1, default=1),
+        page_size: int = Query(ge=1, default=2),
         page_number: int = Query(ge=1, default=1),
         user_service: UserService = Depends(get_user_service),
 ):
