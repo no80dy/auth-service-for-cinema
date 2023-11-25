@@ -33,7 +33,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
         user = result.scalars().first()
 
-        return True if user else False
+        return bool(user)
 
     async def check_unique_email(self, user_dto):
         result = await self.db.execute(select(User).where(User.email == user_dto.get('email')))
