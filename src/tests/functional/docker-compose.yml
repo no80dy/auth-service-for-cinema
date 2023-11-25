@@ -1,0 +1,48 @@
+version: '3'
+services:
+
+  redis:
+    image: docker.io/bitnami/redis:7.2.1
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - "6379:6379"
+
+  database:
+    image: postgres:latest
+    env_file:
+      - ./tests.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  fastapi:
+    build:
+      context: ../../../src
+      dockerfile: Dockerfile
+    image: fastapi-image
+    env_file:
+      - tests.env
+    depends_on:
+      - database
+      - redis
+    ports:
+      - "8000:8000"
+
+  tests:
+    image: fastapi-image
+    env_file:
+      - tests.env
+    entrypoint: >
+      sh -c "python3 /app/tests/functional/utils/wait_for_redis.py
+      && python3 /app/tests/functional/utils/wait_for_postgres.py
+      && python3 -m pytest --setup-show -vvs -W ignore::DeprecationWarning /app/tests/functional/src"
+    depends_on:
+      - fastapi
+      - database
+      - redis
+
+volumes:
+  pgdata:
