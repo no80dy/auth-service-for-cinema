@@ -88,8 +88,16 @@ class UserService:
         except SQLAlchemyError as e:
             logging.error(e)
 
-    async def put_refresh_session_in_db(self, data: RefreshToDb) -> None:
+    async def put_refresh_session_in_db(self, user_id: str, user_agent: str, decrypted_token: dict) -> None:
         """Записывает созданный refresh токен в базу данных."""
+        session_dto = json.dumps({
+            'user_id': user_id,
+            'refresh_jti': decrypted_token['jti'],
+            'user_agent': user_agent,
+            'expired_at': datetime.fromtimestamp(decrypted_token['exp']).isoformat(),
+            'is_active': True
+        })
+        data = RefreshToDb.model_validate_json(session_dto)
         try:
             row = RefreshSession(**data.model_dump())
             self.db.add(row)
@@ -98,6 +106,7 @@ class UserService:
         except SQLAlchemyError as e:
             logging.error(e)
             await self.db.rollback()
+
 
     async def check_if_session_exist(self, data: RefreshDelDb):
         """Проверяет существование сессии."""

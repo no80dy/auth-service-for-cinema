@@ -204,17 +204,8 @@ async def login(
     if session_number > MAX_SESSION_NUMBER:
         await user_service.del_all_refresh_sessions_in_db(user)
 
-    # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    refresh_jti = await Authorize.get_jti(refresh_token)
-    session_dto = json.dumps({
-        'user_id': str(user.id),
-        'refresh_jti': refresh_jti,
-        'user_agent': user_agent,
-        'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
-        'is_active': True
-    })
-    session = RefreshToDb.model_validate_json(session_dto)
-    await user_service.put_refresh_session_in_db(session)
+    decrypted_token = await Authorize.get_raw_jwt(refresh_token)
+    await user_service.put_refresh_session_in_db(str(user.id), user_agent, decrypted_token)
 
     # записываем историю входа в аккаунт
     history_dto = json.dumps({
@@ -327,16 +318,8 @@ async def refresh(
     refresh_token = await Authorize.create_refresh_token(subject=username, user_claims=user_id_claims)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    new_refresh_jti = await Authorize.get_jti(refresh_token)
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'refresh_jti': new_refresh_jti,
-        'user_agent': user_agent,
-        'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
-        'is_active': True
-    })
-    session = RefreshToDb.model_validate_json(session_dto)
-    await user_service.put_refresh_session_in_db(session)
+    new_decrypted_token = await Authorize.get_raw_jwt(refresh_token)
+    await user_service.put_refresh_session_in_db(user_id, user_agent, new_decrypted_token)
 
     return JSONResponse(
         status_code=HTTPStatus.OK,
