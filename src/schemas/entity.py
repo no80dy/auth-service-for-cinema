@@ -108,3 +108,9 @@ class UserLogoutHistoryInDb(BaseModel):
 
 class UserResponseHistoryInDb(UserLoginHistoryInDb):
     login_at: datetime
+
+
+class UserPaginatedHistoryInDb(BaseModel):
+    previous: None | int
+    next: None | int
+    items: list[UserResponseHistoryInDb]

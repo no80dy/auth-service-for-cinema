@@ -24,7 +24,7 @@ from schemas.entity import (
     UserChangePassword,
     UserResponseUsername,
     GroupAssign,
-    UserResponseHistoryInDb,
+    UserResponseHistoryInDb, UserPaginatedHistoryInDb,
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
@@ -354,7 +354,7 @@ async def refresh(
 
 @router.get(
     '/{user_id}/get_history',
-    response_model=list[UserResponseHistoryInDb],
+    response_model=UserPaginatedHistoryInDb,
     status_code=HTTPStatus.OK,
 )
 async def get_history(
@@ -364,5 +364,14 @@ async def get_history(
         user_service: UserService = Depends(get_user_service),
 ):
     history = await user_service.get_login_history(user_id, page_size, page_number)
-    return history
+    count = await user_service.get_login_history_count(user_id)
+    previous, next_page = await user_service.calc_previous_and_next_pages(page_number, page_size, count)
+
+    result = {
+        'previous': previous,
+        'next': next_page,
+        'items': history
+    }
+
+    return result
 

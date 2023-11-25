@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Sequence, List, Dict, Tuple
 
 from fastapi import Depends
-from sqlalchemy import select, update, and_, UUID
+from sqlalchemy import select, update, and_, UUID, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -194,8 +194,14 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
+    async def calc_previous_and_next_pages(self, page_number, page_size, count):
+        previous = page_number - 1 if page_number != 1 else None
+        next_page = page_number + 1 if count // (page_size * page_number) > 1 else None
+        return previous, next_page
+
     async def get_login_history(
-            self, user_id: uuid,
+            self,
+            user_id: uuid,
             page_size: int,
             page_number: int,
     ) -> list[dict[str, UUID | datetime | str]]:
@@ -218,6 +224,13 @@ class UserService:
         } for item in history]
 
         return history_dto
+
+    async def get_login_history_count(self, user_id: uuid):
+        result = await self.db.execute(
+            select(func.count(UserLoginHistory.id)).
+            where(UserLoginHistory.user_id == str(user_id))
+        )
+        return result.scalar()
 
     async def calculate_offset(self, page_size: int, page_number: int) -> tuple[int, int]:
         offset_min = (page_number - 1) * page_size

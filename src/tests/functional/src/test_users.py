@@ -191,7 +191,7 @@ async def test_get_history_user_empty(
     user_id = created_user.get('body').get('id')
     result = await make_get_request(f'users/{user_id}/get_history', {})
 
-    assert result.get('body') == expected_response
+    assert result.get('body').get('items') == expected_response
     assert result.get('status') == status_code
 
 
@@ -218,8 +218,8 @@ async def test_get_one_history_user(
 
     result = await make_get_request(f'users/{user_id}/get_history', {})
 
-    assert len(result.get('body')) == 1
-    assert set(result.get('body')[0].keys()) == {'login_at', 'user_agent', 'user_id'}
+    assert len(result.get('body').get('items')) == 1
+    assert set(result.get('body').get('items')[0].keys()) == {'login_at', 'user_agent', 'user_id'}
     assert result.get('status') == HTTPStatus.OK
 
 
@@ -243,7 +243,7 @@ async def test_get_history_user(
     await make_post_request('users/signin', signin_data)
     result = await make_get_request(f'users/{fake_data.get("user").id}/get_history', {'page_size': 1})
 
-    assert len(result.get('body')) == 1
+    assert len(result.get('body').get('items')) == 1
 
 
 @pytest.mark.parametrize(
