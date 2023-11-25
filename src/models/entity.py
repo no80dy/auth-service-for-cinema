@@ -5,9 +5,17 @@ from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, DateTime, String, ForeignKey, Table, Boolean
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, DateTime, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from db.postgres import Base
+
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+from core.config import settings
 
 
 groups_users_table = Table(

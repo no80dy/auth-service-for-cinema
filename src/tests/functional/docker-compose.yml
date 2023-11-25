@@ -39,6 +39,10 @@ services:
       sh -c "python3 /app/tests/functional/utils/wait_for_redis.py
       && python3 /app/tests/functional/utils/wait_for_postgres.py
       && python3 -m pytest --setup-show -vvs -W ignore::DeprecationWarning /app/tests/functional/src"
+    depends_on:
+      - fastapi
+      - database
+      - redis
 
 volumes:
   pgdata:
