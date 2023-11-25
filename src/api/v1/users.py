@@ -187,18 +187,12 @@ async def login(
         )
 
     # проверяем, что пользователь уже не вошел с данного устройства
-    active_user_login_dto = json.dumps({
-        'user_id': str(user.id),
-        'user_agent': user_agent,
-    })
-    active_user_login = UserLoginHistoryInDb.model_validate_json(active_user_login_dto)
-    active_user_login = await user_service.check_if_user_login(active_user_login)
+    active_user_login = await user_service.check_if_user_login(user, user_agent)
     if active_user_login:
         return JSONResponse(
             status_code=HTTPStatus.BAD_REQUEST,
             content={'detail': 'Данный пользователь уже совершил вход с данного устройства'})
 
-    # добавляем user_id в тела токенов
     user_id_claims = {'user_id': str(user.id)}
 
     # создаем пару access и refresh токенов

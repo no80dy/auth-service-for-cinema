@@ -150,13 +150,13 @@ class UserService:
             logging.error(e)
             await self.db.rollback()
 
-    async def check_if_user_login(self, data: UserLoginHistoryInDb) -> bool:
+    async def check_if_user_login(self, user: User, user_agent: str) -> bool:
         """Проверяет существования активной записи о входе пользователя с данного устройства."""
         try:
             stmt = select(UserLoginHistory). \
                 where(
-                    User.id == data.user_id,
-                    UserLoginHistory.user_agent == data.user_agent,
+                    UserLoginHistory.user_id == user.id,
+                    UserLoginHistory.user_agent == user_agent,
                     UserLoginHistory.logout_at.is_(None))
 
             result = await self.db.execute(stmt)
@@ -165,6 +165,7 @@ class UserService:
             return True if active_login_history else False
         except Exception as e:
             logging.error(e)
+
 
     async def put_logout_history_in_db(self, data: UserLogoutHistoryInDb) -> None:
         """Записывает историю выхода из аккаунта в базу данных."""
