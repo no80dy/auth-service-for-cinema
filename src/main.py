@@ -9,7 +9,6 @@ from async_fastapi_jwt_auth.exceptions import AuthJWTException
 from api.v1 import users, groups, permissions
 
 from core.config import settings
-from db.postgres import create_database
 
 from db import storage
 from db.redis import RedisStorage
@@ -23,7 +22,6 @@ async def lifespan(app: FastAPI):
         db=0,
         decode_responses=True
     )
-    await create_database()
     yield
     await storage.nosql_storage.close()
 
