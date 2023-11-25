@@ -14,7 +14,6 @@ RUN apk update &&\
 
 COPY . .
 
-RUN chmod +x ./entrypoint-fastapi.sh && \
-    chmod +x ./wait-for-it.sh
+RUN chmod +x ./entrypoint-fastapi.sh
 
 ENTRYPOINT ["./entrypoint-fastapi.sh"]
