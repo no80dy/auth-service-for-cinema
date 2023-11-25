@@ -17,4 +17,4 @@ COPY . .
 RUN chmod +x ./entrypoint-fastapi.sh && \
     chmod +x ./wait-for-it.sh
 
-ENTRYPOINT ["./wait-for-it.sh", "database:5432", "--strict", "--timeout=3000", "--", "./entrypoint-fastapi.sh"]
+ENTRYPOINT ["./entrypoint-fastapi.sh"]
