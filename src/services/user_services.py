@@ -8,6 +8,7 @@ from typing import Sequence, List, Dict
 
 from fastapi import Depends
 from sqlalchemy import select, update, and_, UUID
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -84,7 +85,7 @@ class UserService:
             result = await self.db.execute(select(User).where(User.username == username))
             user = result.scalars().first()
             return user
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
 
     async def put_refresh_session_in_db(self, data: RefreshToDb) -> None:
@@ -94,7 +95,7 @@ class UserService:
             self.db.add(row)
             await self.db.commit()
             await self.db.refresh(row)
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
             await self.db.rollback()
 
@@ -110,7 +111,7 @@ class UserService:
             result = await self.db.execute(stmt)
             row = result.scalars().first()
             return True if row else False
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
 
     async def del_refresh_session_in_db(self, data: RefreshDelDb) -> None:
@@ -125,7 +126,7 @@ class UserService:
                 )
             await self.db.execute(stmt)
             await self.db.commit()
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
             await self.db.rollback()
 
@@ -135,7 +136,7 @@ class UserService:
                 update(RefreshSession).where(RefreshSession.user_id == user.id).values(is_active=False),
             )
             await self.db.commit()
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
 
     async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
@@ -146,7 +147,7 @@ class UserService:
             self.db.add(row)
             await self.db.commit()
             await self.db.refresh(row)
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
             await self.db.rollback()
 
@@ -163,7 +164,7 @@ class UserService:
             active_login_history = result.scalars().first()
 
             return True if active_login_history else False
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
 
 
@@ -179,7 +180,7 @@ class UserService:
 
             await self.db.execute(stmt)
             await self.db.commit()
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
             await self.db.rollback()
 
@@ -192,7 +193,7 @@ class UserService:
                 ))
             sessions = result.scalars().all()
             return sessions.count() if len(sessions) > 0 else 0
-        except Exception as e:
+        except SQLAlchemyError as e:
             logging.error(e)
 
     async def get_login_history(self, user_id: uuid) -> list[dict[str, UUID | datetime | str]]:
