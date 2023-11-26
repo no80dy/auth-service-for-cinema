@@ -191,11 +191,11 @@ async def test_get_history_user_empty(
     user_id = created_user.get('body').get('id')
     result = await make_get_request(f'users/{user_id}/get_history', {})
 
-    assert result.get('body') == expected_response
+    assert result.get('body').get('items') == expected_response
     assert result.get('status') == status_code
 
 
-async def test_get_history_user(
+async def test_get_one_history_user(
     make_post_request,
     make_get_request,
 ):
@@ -213,13 +213,37 @@ async def test_get_history_user(
     }
     created_user = await make_post_request('users/signup', first_user)
     await make_post_request('users/signin', signin_data)
+
     user_id = created_user.get('body').get('id')
 
     result = await make_get_request(f'users/{user_id}/get_history', {})
 
-    assert len(result.get('body')) == 1
-    assert set(result.get('body')[0].keys()) == {'login_at', 'user_agent', 'user_id'}
+    assert len(result.get('body').get('items')) == 1
+    assert set(result.get('body').get('items')[0].keys()) == {'login_at', 'user_agent', 'user_id'}
     assert result.get('status') == HTTPStatus.OK
+
+
+async def test_get_history_user(
+    make_post_request,
+    make_get_request,
+    create_fake_login,
+):
+    fake_data = await create_fake_login()
+    await make_post_request(
+        'users/logout',
+        headers={
+            'Authorization': f'Bearer {fake_data["access_token"]}',
+            'User-Agent': fake_data['user_agent'],
+        }
+    )
+    signin_data = {
+        "username": fake_data.get('user').username,
+        "password": '123456789',
+    }
+    await make_post_request('users/signin', signin_data)
+    result = await make_get_request(f'users/{fake_data.get("user").id}/get_history', {'page_size': 1})
+
+    assert len(result.get('body').get('items')) == 1
 
 
 @pytest.mark.parametrize(
