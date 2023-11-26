@@ -1,5 +1,6 @@
 import sys
 import time
+import redis
 import backoff
 import requests
 
@@ -21,18 +22,18 @@ if __name__ == '__main__':
 
 	@backoff.on_exception(
 		backoff.expo,
-		(requests.exceptions.Timeout, requests.exceptions.ConnectionError, ),
+		(redis.exceptions.ConnectionError, ),
 		max_time=BACKOFF_MAX_TIME
 	)
 	def check_redis_readiness():
 		while True:
 			if redis_client.ping():
-				logger.info('Redis ping Ok')
+				logger.info('Redis ping OK')
 				break
 			time.sleep(1)
 
 	try:
 		check_redis_readiness()
 	except ConnectionError:
-		print('Redis is not available')
+		logger.info('Redis is not available')
 		raise ConnectionError
