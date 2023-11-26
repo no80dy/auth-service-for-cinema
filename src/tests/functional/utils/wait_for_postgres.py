@@ -30,12 +30,8 @@ if __name__ == '__main__':
 		max_time=BACKOFF_MAX_TIME
 	)
 	async def wait_for_postgres():
-		try:
-			conn = await connect_to_postgres()
-			logger.info('Postgres connect Ok')
-			await conn.close()
-		except asyncpg.PostgresConnectionError:
-			raise
-
+		conn = await connect_to_postgres()
+		logger.info('PostgreSQL connect OK')
+		await conn.close()
 
 	asyncio.run(wait_for_postgres())

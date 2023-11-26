@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
@@ -15,7 +15,9 @@ class DatabaseSession:
 
 	async def get_permission_by_name(self, permission_name: str):
 		permission = (await self.session.execute(
-			select(Permission).where(Permission.permission_name == permission_name)
+			select(Permission).where(
+				Permission.permission_name == permission_name
+			)
 		)).unique().scalars().all()
 		return permission
 
@@ -54,8 +56,7 @@ class DatabaseSession:
 		data: dict
 	) -> Permission | None:
 		query_result = await self.session.execute(
-			select(Permission)\
-				.where(Permission.id == permission_id)
+			select(Permission).where(Permission.id == permission_id)
 		)
 		permission = query_result.unique().scalar()
 
@@ -71,14 +72,16 @@ class DatabaseSession:
 		permission_id: UUID
 	) -> UUID | None:
 		query_result = await self.session.execute(
-			select(Permission)\
-				.where(Permission.id == permission_id)
+			select(Permission).where(Permission.id == permission_id)
 		)
 		permission = query_result.unique().scalar()
+
 		if not permission:
 			return None
+
 		await self.session.delete(permission)
 		await self.session.commit()
+
 		return permission.id
 
 
@@ -88,7 +91,7 @@ class PermissionService:
 
 	async def check_permission_exists(self, permission_name: str) -> bool:
 		permission = await self.session.get_permission_by_name(permission_name)
-		return True if permission else False
+		return bool(permission)
 
 	async def add_permission(
 		self,
@@ -102,7 +105,7 @@ class PermissionService:
 		)
 
 	async def read_permissions(self) -> list[PermissionShortView]:
-		permissions  = await self.session.read_permissions()
+		permissions = await self.session.read_permissions()
 		return [
 			PermissionShortView(permission_name=permission.permission_name)
 			for permission in permissions
@@ -113,9 +116,7 @@ class PermissionService:
 		permission_id: UUID,
 		permission_name: str
 	) -> bool:
-		if await self.session.get_permission_name_duplicates(permission_id, permission_name):
-			return True
-		return False
+		return bool(await self.session.get_permission_name_duplicates(permission_id, permission_name))
 
 	async def update_permission(
 		self,
@@ -136,8 +137,7 @@ class PermissionService:
 		self,
 		permission_id: UUID
 	) -> UUID | None:
-		deleted_id = await self.session.delete_permission(permission_id)
-		return deleted_id
+		return await self.session.delete_permission(permission_id)
 
 
 async def get_permission_service(

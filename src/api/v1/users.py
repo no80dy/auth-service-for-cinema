@@ -10,26 +10,21 @@ from async_fastapi_jwt_auth import AuthJWT
 from fastapi.security import HTTPBearer
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body, Query
 
 from core.config import JWTSettings
 from schemas.entity import (
     UserSighIn,
-    UserLoginHistoryInDb,
-    UserLogoutHistoryInDb,
-    RefreshToDb,
-    RefreshDelDb,
     UserInDB,
     UserCreate,
     UserChangePassword,
     UserResponseUsername,
     GroupAssign,
-    UserResponseHistoryInDb,
+    UserResponseHistoryInDb, UserPaginatedHistoryInDb,
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
 from services.authorization import PermissionClaimsService, get_permission_claims_service
-
 
 MAX_SESSION_NUMBER = 5
 
@@ -51,12 +46,12 @@ def get_config():
     response_description='Информация об обновленном пользователе'
 )
 async def add_group(
-    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
-    group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
-    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-    authorize: Annotated[AuthJWT, Depends()],
-    access_token: Annotated[str, Depends(security)]
+        user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+        group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
+        user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+        authorize: Annotated[AuthJWT, Depends()],
+        access_token: Annotated[str, Depends(security)]
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
@@ -85,12 +80,12 @@ async def add_group(
     response_description='Информация о роли, записанной в базу данных'
 )
 async def delete_group(
-    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
-    group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
-    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-    authorize: Annotated[AuthJWT, Depends()],
-    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-    access_token: Annotated[str, Depends(security)]
+        user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+        group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
+        user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+        authorize: Annotated[AuthJWT, Depends()],
+        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+        access_token: Annotated[str, Depends(security)]
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
@@ -187,18 +182,12 @@ async def login(
         )
 
     # проверяем, что пользователь уже не вошел с данного устройства
-    active_user_login_dto = json.dumps({
-        'user_id': str(user.id),
-        'user_agent': user_agent,
-    })
-    active_user_login = UserLoginHistoryInDb.model_validate_json(active_user_login_dto)
-    active_user_login = await user_service.check_if_user_login(active_user_login)
+    active_user_login = await user_service.check_if_user_login(str(user.id), user_agent)
     if active_user_login:
         return JSONResponse(
             status_code=HTTPStatus.BAD_REQUEST,
             content={'detail': 'Данный пользователь уже совершил вход с данного устройства'})
 
-    # добавляем user_id в тела токенов
     user_id_claims = {'user_id': str(user.id)}
 
     # создаем пару access и refresh токенов
@@ -206,29 +195,15 @@ async def login(
     refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
 
     # защита от превышения максимально возможного количества сессий
-    session_number = await user_service.count_refresh_sessions(user.id)
+    session_number = await user_service.count_refresh_sessions(str(user.id))
     if session_number > MAX_SESSION_NUMBER:
         await user_service.del_all_refresh_sessions_in_db(user)
 
-    # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    refresh_jti = await Authorize.get_jti(refresh_token)
-    session_dto = json.dumps({
-        'user_id': str(user.id),
-        'refresh_jti': refresh_jti,
-        'user_agent': user_agent,
-        'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
-        'is_active': True
-    })
-    session = RefreshToDb.model_validate_json(session_dto)
-    await user_service.put_refresh_session_in_db(session)
+    decrypted_token = await Authorize.get_raw_jwt(refresh_token)
+    await user_service.put_refresh_session_in_db(str(user.id), user_agent, decrypted_token)
 
     # записываем историю входа в аккаунт
-    history_dto = json.dumps({
-        'user_id': str(user.id),
-        'user_agent': user_agent,
-    })
-    history = UserLoginHistoryInDb.model_validate_json(history_dto)
-    await user_service.put_login_history_in_db(history)
+    await user_service.put_login_history_in_db(str(user.id), user_agent)
 
     return JSONResponse(content={
         'access_token': access_token,
@@ -265,21 +240,10 @@ async def logout(
     user_id = decrypted_token['user_id']
 
     # обновляем запись в таблицу истории выход из аккаунта
-    history_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-        'logout_at': datetime.now().isoformat()
-    })
-    history = UserLogoutHistoryInDb.model_validate_json(history_dto)
-    await user_service.put_logout_history_in_db(history)
+    await user_service.put_logout_history_in_db(user_id, user_agent)
 
     # удаляем сессию из таблицы refresh_sessions
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-    })
-    session = RefreshDelDb.model_validate_json(session_dto)
-    await user_service.del_refresh_session_in_db(session)
+    await user_service.del_refresh_session_in_db(user_id, user_agent)
 
     return JSONResponse(
         status_code=HTTPStatus.OK,
@@ -312,14 +276,9 @@ async def refresh(
     user_id = decrypted_token['user_id']
 
     # удаляем сессию из таблицы refresh_sessions
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-    })
-    session = RefreshDelDb.model_validate_json(session_dto)
-    session_exist = await user_service.check_if_session_exist(session)
+    session_exist = await user_service.check_if_session_exist(user_id, user_agent)
     if session_exist:
-        await user_service.del_refresh_session_in_db(session)
+        await user_service.del_refresh_session_in_db(user_id, user_agent)
     else:
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
@@ -333,16 +292,8 @@ async def refresh(
     refresh_token = await Authorize.create_refresh_token(subject=username, user_claims=user_id_claims)
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
-    new_refresh_jti = await Authorize.get_jti(refresh_token)
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'refresh_jti': new_refresh_jti,
-        'user_agent': user_agent,
-        'expired_at': datetime.fromtimestamp((await Authorize.get_raw_jwt(refresh_token))['exp']).isoformat(),
-        'is_active': True
-    })
-    session = RefreshToDb.model_validate_json(session_dto)
-    await user_service.put_refresh_session_in_db(session)
+    new_decrypted_token = await Authorize.get_raw_jwt(refresh_token)
+    await user_service.put_refresh_session_in_db(user_id, user_agent, new_decrypted_token)
 
     return JSONResponse(
         status_code=HTTPStatus.OK,
@@ -354,13 +305,23 @@ async def refresh(
 
 @router.get(
     '/{user_id}/get_history',
-    response_model=list[UserResponseHistoryInDb],
+    response_model=UserPaginatedHistoryInDb,
     status_code=HTTPStatus.OK,
 )
 async def get_history(
         user_id: UUID,
+        page_size: int = Query(ge=1, default=2),
+        page_number: int = Query(ge=1, default=1),
         user_service: UserService = Depends(get_user_service),
 ):
-    history = await user_service.get_login_history(user_id)
-    return history
+    history = await user_service.get_login_history(user_id, page_size, page_number)
+    count = await user_service.get_login_history_count(user_id)
+    previous, next_page = await user_service.calc_previous_and_next_pages(page_number, page_size, count)
 
+    result = {
+        'previous': previous,
+        'next': next_page,
+        'items': history
+    }
+
+    return result
