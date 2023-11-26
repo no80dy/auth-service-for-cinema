@@ -30,7 +30,6 @@ from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
 from services.authorization import PermissionClaimsService, get_permission_claims_service
 
-
 MAX_SESSION_NUMBER = 5
 
 security = HTTPBearer()
@@ -51,12 +50,12 @@ def get_config():
     response_description='Информация об обновленном пользователе'
 )
 async def add_group(
-    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
-    group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
-    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-    authorize: Annotated[AuthJWT, Depends()],
-    access_token: Annotated[str, Depends(security)]
+        user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+        group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
+        user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+        authorize: Annotated[AuthJWT, Depends()],
+        access_token: Annotated[str, Depends(security)]
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
@@ -85,12 +84,12 @@ async def add_group(
     response_description='Информация о роли, записанной в базу данных'
 )
 async def delete_group(
-    user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
-    group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
-    user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-    authorize: Annotated[AuthJWT, Depends()],
-    permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-    access_token: Annotated[str, Depends(security)]
+        user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
+        group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
+        user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
+        authorize: Annotated[AuthJWT, Depends()],
+        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
+        access_token: Annotated[str, Depends(security)]
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
@@ -187,7 +186,7 @@ async def login(
         )
 
     # проверяем, что пользователь уже не вошел с данного устройства
-    active_user_login = await user_service.check_if_user_login(user, user_agent)
+    active_user_login = await user_service.check_if_user_login(str(user.id), user_agent)
     if active_user_login:
         return JSONResponse(
             status_code=HTTPStatus.BAD_REQUEST,
@@ -200,7 +199,7 @@ async def login(
     refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
 
     # защита от превышения максимально возможного количества сессий
-    session_number = await user_service.count_refresh_sessions(user.id)
+    session_number = await user_service.count_refresh_sessions(str(user.id))
     if session_number > MAX_SESSION_NUMBER:
         await user_service.del_all_refresh_sessions_in_db(user)
 
@@ -208,12 +207,7 @@ async def login(
     await user_service.put_refresh_session_in_db(str(user.id), user_agent, decrypted_token)
 
     # записываем историю входа в аккаунт
-    history_dto = json.dumps({
-        'user_id': str(user.id),
-        'user_agent': user_agent,
-    })
-    history = UserLoginHistoryInDb.model_validate_json(history_dto)
-    await user_service.put_login_history_in_db(history)
+    await user_service.put_login_history_in_db(str(user.id), user_agent)
 
     return JSONResponse(content={
         'access_token': access_token,
@@ -250,21 +244,10 @@ async def logout(
     user_id = decrypted_token['user_id']
 
     # обновляем запись в таблицу истории выход из аккаунта
-    history_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-        'logout_at': datetime.now().isoformat()
-    })
-    history = UserLogoutHistoryInDb.model_validate_json(history_dto)
-    await user_service.put_logout_history_in_db(history)
+    await user_service.put_logout_history_in_db(user_id, user_agent)
 
     # удаляем сессию из таблицы refresh_sessions
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-    })
-    session = RefreshDelDb.model_validate_json(session_dto)
-    await user_service.del_refresh_session_in_db(session)
+    await user_service.del_refresh_session_in_db(user_id, user_agent)
 
     return JSONResponse(
         status_code=HTTPStatus.OK,
@@ -297,14 +280,9 @@ async def refresh(
     user_id = decrypted_token['user_id']
 
     # удаляем сессию из таблицы refresh_sessions
-    session_dto = json.dumps({
-        'user_id': user_id,
-        'user_agent': user_agent,
-    })
-    session = RefreshDelDb.model_validate_json(session_dto)
-    session_exist = await user_service.check_if_session_exist(session)
+    session_exist = await user_service.check_if_session_exist(user_id, user_agent)
     if session_exist:
-        await user_service.del_refresh_session_in_db(session)
+        await user_service.del_refresh_session_in_db(user_id, user_agent)
     else:
         raise HTTPException(
             status_code=HTTPStatus.UNAUTHORIZED,
@@ -340,4 +318,3 @@ async def get_history(
 ):
     history = await user_service.get_login_history(user_id)
     return history
-

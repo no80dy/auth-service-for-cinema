@@ -107,9 +107,13 @@ class UserService:
             logging.error(e)
             await self.db.rollback()
 
-
-    async def check_if_session_exist(self, data: RefreshDelDb):
+    async def check_if_session_exist(self, user_id: str, user_agent: str) -> bool:
         """Проверяет существование сессии."""
+        session_dto = json.dumps({
+            'user_id': user_id,
+            'user_agent': user_agent,
+        })
+        data = RefreshDelDb.model_validate_json(session_dto)
         try:
             stmt = select(RefreshSession). \
                 where(
@@ -123,8 +127,13 @@ class UserService:
         except SQLAlchemyError as e:
             logging.error(e)
 
-    async def del_refresh_session_in_db(self, data: RefreshDelDb) -> None:
+    async def del_refresh_session_in_db(self, user_id: str, user_agent: str) -> None:
         """Помечает refresh токен как удаленный в базе данных."""
+        session_dto = json.dumps({
+            'user_id': user_id,
+            'user_agent': user_agent,
+        })
+        data = RefreshDelDb.model_validate_json(session_dto)
         try:
             stmt = update(RefreshSession). \
                 values(is_active=False). \
@@ -148,11 +157,15 @@ class UserService:
         except SQLAlchemyError as e:
             logging.error(e)
 
-    async def put_login_history_in_db(self, data: UserLoginHistoryInDb) -> None:
+    async def put_login_history_in_db(self, user_id: str, user_agent: str) -> None:
         """Записывает историю входа в аккаунт в базу данных."""
+        history_dto = json.dumps({
+            'user_id': user_id,
+            'user_agent': user_agent,
+        })
+        data = UserLoginHistoryInDb.model_validate_json(history_dto)
         try:
             row = UserLoginHistory(**data.model_dump())
-
             self.db.add(row)
             await self.db.commit()
             await self.db.refresh(row)
@@ -160,12 +173,12 @@ class UserService:
             logging.error(e)
             await self.db.rollback()
 
-    async def check_if_user_login(self, user: User, user_agent: str) -> bool:
+    async def check_if_user_login(self, user_id: str, user_agent: str) -> bool:
         """Проверяет существования активной записи о входе пользователя с данного устройства."""
         try:
             stmt = select(UserLoginHistory). \
                 where(
-                    UserLoginHistory.user_id == user.id,
+                    UserLoginHistory.user_id == user_id,
                     UserLoginHistory.user_agent == user_agent,
                     UserLoginHistory.logout_at.is_(None))
 
@@ -176,9 +189,14 @@ class UserService:
         except SQLAlchemyError as e:
             logging.error(e)
 
-
-    async def put_logout_history_in_db(self, data: UserLogoutHistoryInDb) -> None:
+    async def put_logout_history_in_db(self, user_id: str, user_agent: str) -> None:
         """Записывает историю выхода из аккаунта в базу данных."""
+        history_dto = json.dumps({
+            'user_id': user_id,
+            'user_agent': user_agent,
+            'logout_at': datetime.now().isoformat()
+        })
+        data = UserLogoutHistoryInDb.model_validate_json(history_dto)
         try:
             stmt = update(UserLoginHistory). \
                 values(logout_at=data.logout_at). \
@@ -193,7 +211,7 @@ class UserService:
             logging.error(e)
             await self.db.rollback()
 
-    async def count_refresh_sessions(self, user_id: uuid.UUID) -> int:
+    async def count_refresh_sessions(self, user_id: str) -> int:
         """Возвращает число открытых сессий пользователя."""
         try:
             result = await self.db.execute(select(RefreshSession).where(
