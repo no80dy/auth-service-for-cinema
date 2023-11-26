@@ -10,7 +10,7 @@ from async_fastapi_jwt_auth import AuthJWT
 from fastapi.security import HTTPBearer
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Body, Query
 
 from core.config import JWTSettings
 from schemas.entity import (
@@ -24,7 +24,7 @@ from schemas.entity import (
     UserChangePassword,
     UserResponseUsername,
     GroupAssign,
-    UserResponseHistoryInDb,
+    UserResponseHistoryInDb, UserPaginatedHistoryInDb,
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
@@ -354,13 +354,24 @@ async def refresh(
 
 @router.get(
     '/{user_id}/get_history',
-    response_model=list[UserResponseHistoryInDb],
+    response_model=UserPaginatedHistoryInDb,
     status_code=HTTPStatus.OK,
 )
 async def get_history(
         user_id: UUID,
+        page_size: int = Query(ge=1, default=2),
+        page_number: int = Query(ge=1, default=1),
         user_service: UserService = Depends(get_user_service),
 ):
-    history = await user_service.get_login_history(user_id)
-    return history
+    history = await user_service.get_login_history(user_id, page_size, page_number)
+    count = await user_service.get_login_history_count(user_id)
+    previous, next_page = await user_service.calc_previous_and_next_pages(page_number, page_size, count)
+
+    result = {
+        'previous': previous,
+        'next': next_page,
+        'items': history
+    }
+
+    return result
 

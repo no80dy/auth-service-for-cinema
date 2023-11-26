@@ -4,10 +4,10 @@ import uuid
 
 from datetime import datetime
 from functools import lru_cache
-from typing import Sequence, List, Dict
+from typing import Sequence, List, Dict, Tuple
 
 from fastapi import Depends
-from sqlalchemy import select, update, and_, UUID
+from sqlalchemy import select, update, and_, UUID, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -33,7 +33,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
         user = result.scalars().first()
 
-        return True if user else False
+        return bool(user)
 
     async def check_unique_email(self, user_dto):
         result = await self.db.execute(select(User).where(User.email == user_dto.get('email')))
@@ -194,8 +194,27 @@ class UserService:
         except Exception as e:
             logging.error(e)
 
-    async def get_login_history(self, user_id: uuid) -> list[dict[str, UUID | datetime | str]]:
-        result = await self.db.execute(select(UserLoginHistory).where(UserLoginHistory.user_id == str(user_id)))
+    async def calc_previous_and_next_pages(self, page_number, page_size, count):
+        previous = page_number - 1 if page_number != 1 else None
+        next_page = page_number + 1 if count // (page_size * page_number) > 1 else None
+        return previous, next_page
+
+    async def get_login_history(
+            self,
+            user_id: uuid,
+            page_size: int,
+            page_number: int,
+    ) -> list[dict[str, UUID | datetime | str]]:
+
+        offset_min, offset_max = await self.calculate_offset(page_size, page_number)
+
+        result = await self.db.execute(
+            select(UserLoginHistory).
+            where(UserLoginHistory.user_id == str(user_id)).
+            order_by(UserLoginHistory.id).
+            offset(offset_min).
+            limit(offset_max - offset_min)
+        )
         history = result.scalars().all()
 
         history_dto = [{
@@ -205,6 +224,19 @@ class UserService:
         } for item in history]
 
         return history_dto
+
+    async def get_login_history_count(self, user_id: uuid):
+        result = await self.db.execute(
+            select(func.count(UserLoginHistory.id)).
+            where(UserLoginHistory.user_id == str(user_id))
+        )
+        return result.scalar()
+
+    async def calculate_offset(self, page_size: int, page_number: int) -> tuple[int, int]:
+        offset_min = (page_number - 1) * page_size
+        offset_max = offset_min + page_size
+
+        return offset_min, offset_max
 
 
 @lru_cache()
