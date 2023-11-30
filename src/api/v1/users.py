@@ -20,7 +20,7 @@ from schemas.entity import (
     UserChangePassword,
     UserResponseUsername,
     GroupAssign,
-    UserResponseHistoryInDb, UserPaginatedHistoryInDb,
+    UserPaginatedHistoryInDb,
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
@@ -55,7 +55,7 @@ async def add_group(
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
-        await authorize.get_jwt_subject(), ['add_group']
+        await authorize.get_jwt_subject(), ['add_group', ]
     )
 
     if not is_authorized:
@@ -188,11 +188,20 @@ async def login(
             status_code=HTTPStatus.BAD_REQUEST,
             content={'detail': 'Данный пользователь уже совершил вход с данного устройства'})
 
-    user_id_claims = {'user_id': str(user.id)}
+    user_claims = {
+        'user_id': str(user.id),
+        'permissions': await user_service.get_user_permissions(user.id)
+    }
 
     # создаем пару access и refresh токенов
-    access_token = await Authorize.create_access_token(subject=user.username, user_claims=user_id_claims)
-    refresh_token = await Authorize.create_refresh_token(subject=user.username, user_claims=user_id_claims)
+    access_token = await Authorize.create_access_token(
+        subject=user.username,
+        user_claims=user_claims
+    )
+    refresh_token = await Authorize.create_refresh_token(
+        subject=user.username,
+        user_claims=user_claims
+    )
 
     # защита от превышения максимально возможного количества сессий
     session_number = await user_service.count_refresh_sessions(str(user.id))
@@ -287,9 +296,19 @@ async def refresh(
 
     # создаем пару access и refresh токенов
     username = await Authorize.get_jwt_subject()
-    user_id_claims = {'user_id': user_id}
-    access_token = await Authorize.create_access_token(subject=username, user_claims=user_id_claims)
-    refresh_token = await Authorize.create_refresh_token(subject=username, user_claims=user_id_claims)
+    user_claims = {
+        'user_id': user_id,
+        'permissions': await user_service.get_user_permissions(user_id)
+    }
+
+    access_token = await Authorize.create_access_token(
+        subject=username,
+        user_claims=user_claims
+    )
+    refresh_token = await Authorize.create_refresh_token(
+        subject=username,
+        user_claims=user_claims
+    )
 
     # сохраняем refresh токен и информацию об устройстве, с которого был совершен вход, в базу данных
     new_decrypted_token = await Authorize.get_raw_jwt(refresh_token)
