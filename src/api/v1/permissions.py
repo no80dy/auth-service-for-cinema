@@ -44,8 +44,7 @@ async def create_permission(
 ) -> PermissionDetailView:
 	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
-		['create_permission']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -70,13 +69,12 @@ async def create_permission(
 async def read_permissions(
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	access_token: Annotated[str, Depends(security)]
 ) -> list[PermissionShortView]:
-	await authorize.jwt_required(access_token)
+	await authorize_service.jwt_required(access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['permissions.read_permissions']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -98,13 +96,12 @@ async def update_permission(
 	permission_upate: Annotated[PermissionUpdate, Body(description='Шаблон для обновления привелегии')],
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	access_token: Annotated[str, Depends(security)]
 ) -> PermissionDetailView:
-	await authorize.jwt_required(token=access_token)
+	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['update_permission']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -145,8 +142,7 @@ async def delete_permission(
 ) -> JSONResponse:
 	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize_service.get_jwt_subject(),
-		['permissions.delete_permission']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:

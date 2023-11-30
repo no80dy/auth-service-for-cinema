@@ -12,24 +12,14 @@ class PermissionClaimsService:
 
 	async def required_permissions(
 		self,
-		username: str,
-		permissions: list[str]
+		permissions_names: list[str],
+		endpoint_permissions: list[str]
 	):
-		user = (await self.session.execute(
-			select(User).where(User.username == username)
-		)).unique().scalar()
-
-		permissions_in_each_group = [group.permissions for group in user.groups]
-		permissions_names = []
-		for permissions_group in permissions_in_each_group:
-			permissions_names_group = [permission.permission_name for permission in permissions_group]
-			permissions_names.extend(permissions_names_group)
-
 		if '*.*' in permissions_names:
 			return True
 
 		for user_permission in permissions_names:
-			if user_permission in permissions:
+			if user_permission in endpoint_permissions:
 				return True
 		return False
 

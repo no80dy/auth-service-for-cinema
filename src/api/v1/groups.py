@@ -33,13 +33,12 @@ async def create_group(
 	group_create: Annotated[GroupCreate, Body(description='Шаблон для создания группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	access_token: Annotated[str, Depends(security)]
 ) -> GroupDetailView:
-	await authorize.jwt_required(token=access_token)
+	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.create_group']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -68,13 +67,12 @@ async def create_group(
 async def read_groups(
 	group_service: Annotated[GroupService, Depends(get_group_service)],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	access_token: Annotated[str, Depends(security)]
 ) -> list[GroupShortView]:
-	await authorize.jwt_required(token=access_token)
+	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.read_groups']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -94,14 +92,13 @@ async def update_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_update: Annotated[GroupUpdate, Body(description='Шаблон для изменения группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
 	access_token: Annotated[str, Depends(security)]
 ) -> GroupDetailView:
-	await authorize.jwt_required(token=access_token)
+	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.update_group']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:
@@ -129,14 +126,13 @@ async def update_group(
 async def delete_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	authorize: Annotated[AuthJWT, Depends()],
+	authorize_service: Annotated[AuthJWT, Depends()],
 	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
 	access_token: Annotated[str, Depends(security)]
 ) -> JSONResponse:
-	await authorize.jwt_required(token=access_token)
+	await authorize_service.jwt_required(token=access_token)
 	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.delete_group']
+		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
 	)
 
 	if not is_authorized:

@@ -55,7 +55,7 @@ async def add_group(
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
-        await authorize.get_jwt_subject(), ['add_group', ]
+        (await authorize.get_raw_jwt())['permissions'], ['add_group', ]
     )
 
     if not is_authorized:
@@ -89,7 +89,7 @@ async def delete_group(
 ):
     await authorize.jwt_required(token=access_token)
     is_authorized = await permission_claims_service.required_permissions(
-        await authorize.get_jwt_subject(), ['delete_group', ]
+        (await authorize.get_raw_jwt())['permissions'], ['delete_group', ]
     )
 
     if not is_authorized:
