@@ -3,10 +3,8 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Path
-from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from async_fastapi_jwt_auth import AuthJWT
 
 from schemas.entity import (
 	PermissionDetailView,
@@ -18,13 +16,9 @@ from services.permissions import (
 	PermissionService,
 	get_permission_service,
 )
-from services.authorization import (
-	PermissionClaimsService,
-	get_permission_claims_service
-)
+from services.authorization import AuthorizationChecker
 
 
-security = HTTPBearer()
 router = APIRouter()
 
 
@@ -38,16 +32,9 @@ router = APIRouter()
 async def create_permission(
 	permission_create: Annotated[PermissionCreate, Body(description='Шаблон для создания привелегии')],
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize_service: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> PermissionDetailView:
-	await authorize_service.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['create_permission', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permission_create_encoded = jsonable_encoder(permission_create)
@@ -68,16 +55,9 @@ async def create_permission(
 )
 async def read_permissions(
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize_service: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> list[PermissionShortView]:
-	await authorize_service.jwt_required(access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['read_permissions', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permissions = await permission_service.read_permissions()
@@ -95,16 +75,9 @@ async def update_permission(
 	permission_id: Annotated[UUID, Path(description='Идентификатор привелегии')],
 	permission_upate: Annotated[PermissionUpdate, Body(description='Шаблон для обновления привелегии')],
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize_service: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> PermissionDetailView:
-	await authorize_service.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['update_permission', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	permission_update_encoded = jsonable_encoder(permission_upate)
@@ -131,21 +104,14 @@ async def update_permission(
 	response_model=None,
 	summary='Удаление привелегии',
 	description='Выполняет удаление конкретной привелегии',
-	response_description='Идентификатор '
+	response_description='JSON ответ с сообщением'
 )
 async def delete_permission(
 	permission_id: Annotated[UUID, Path(description='Идентификатор привелегии')],
 	permission_service: Annotated[PermissionService, Depends(get_permission_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize_service: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> JSONResponse:
-	await authorize_service.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		(await authorize_service.get_raw_jwt())['permissions'], ['add_group', ]
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['delete_permission', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	deleted_id = await permission_service.delete_permission(permission_id)

@@ -1,10 +1,6 @@
-import json
-import datetime
-
 from uuid import UUID
 from http import HTTPStatus
 from typing import Annotated
-from datetime import datetime
 
 from async_fastapi_jwt_auth import AuthJWT
 from fastapi.security import HTTPBearer
@@ -24,7 +20,7 @@ from schemas.entity import (
 )
 from services.user_services import get_user_service, UserService
 from services.user import UserPermissionsService, get_user_permissions_service
-from services.authorization import PermissionClaimsService, get_permission_claims_service
+from services.authorization import AuthorizationChecker
 
 MAX_SESSION_NUMBER = 5
 
@@ -49,16 +45,9 @@ async def add_group(
         user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
         group_assign: Annotated[GroupAssign, Body(description='Шаблон создания роли для пользователя')],
         user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-        authorize: Annotated[AuthJWT, Depends()],
-        access_token: Annotated[str, Depends(security)]
+        check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ):
-    await authorize.jwt_required(token=access_token)
-    is_authorized = await permission_claims_service.required_permissions(
-        (await authorize.get_raw_jwt())['permissions'], ['add_group', ]
-    )
-
-    if not is_authorized:
+    if not await check_authorized(['add_group', ]):
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
     group_assign_encoded = jsonable_encoder(group_assign)
@@ -83,16 +72,9 @@ async def delete_group(
         user_id: Annotated[UUID, Path(description='Идентификатор пользователя')],
         group_assign: Annotated[GroupAssign, Body(description='Шаблон удаления роли для пользователя')],
         user_service: Annotated[UserPermissionsService, Depends(get_user_permissions_service)],
-        authorize: Annotated[AuthJWT, Depends()],
-        permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-        access_token: Annotated[str, Depends(security)]
+        check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ):
-    await authorize.jwt_required(token=access_token)
-    is_authorized = await permission_claims_service.required_permissions(
-        (await authorize.get_raw_jwt())['permissions'], ['delete_group', ]
-    )
-
-    if not is_authorized:
+    if not await check_authorized(['delete_group', ]):
         raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
     group_assign_encoded = jsonable_encoder(group_assign)
