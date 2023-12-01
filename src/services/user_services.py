@@ -4,7 +4,6 @@ import uuid
 
 from datetime import datetime
 from functools import lru_cache
-from typing import Sequence, List, Dict, Tuple
 
 from fastapi import Depends
 from sqlalchemy import select, update, UUID, func
@@ -15,7 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from db.postgres import get_session
 from db.redis import RedisStorage
 from db.storage import get_nosql_storage, TokenHandler
-from models.entity import User, RefreshSession, UserLoginHistory
+from models.entity import User, RefreshSession, UserLoginHistory, Permission, Group
 from schemas.entity import RefreshToDb, UserLoginHistoryInDb, UserLogoutHistoryInDb, RefreshDelDb
 
 CACHE_EXPIRE_IN_SECONDS = 5 * 60  # 5 min
@@ -29,6 +28,20 @@ class UserService:
     ) -> None:
         self.token_handler = token_handler
         self.db = db
+
+    async def get_user_permissions(self, user_id: str) -> list[str]:
+        user = (await self.db.execute(
+            select(User).where(User.id == user_id)
+        )).scalar()
+
+        permissions_in_groups = [group.permissions for group in user.groups]
+        permissions_names = []
+        for permissions_in_group in permissions_in_groups:
+            permissions_names.extend(
+                [permission_in_group.permission_name for permission_in_group in permissions_in_group]
+            )
+
+        return list(set(permissions_names))
 
     async def check_exist_user(self, user_dto):
         result = await self.db.execute(select(User).where(User.username == user_dto.get('username')))
