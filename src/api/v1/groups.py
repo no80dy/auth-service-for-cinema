@@ -3,10 +3,8 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Body
-from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from async_fastapi_jwt_auth import AuthJWT
 
 from schemas.entity import (
 	GroupDetailView,
@@ -15,10 +13,9 @@ from schemas.entity import (
 	GroupUpdate
 )
 from services.group import GroupService, get_group_service
-from services.authorization import PermissionClaimsService, get_permission_claims_service
+from services.authorization import AuthorizationChecker
 
 
-security = HTTPBearer()
 router = APIRouter()
 
 
@@ -32,17 +29,9 @@ router = APIRouter()
 async def create_group(
 	group_create: Annotated[GroupCreate, Body(description='Шаблон для создания группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> GroupDetailView:
-	await authorize.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.create_group']
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['create_group', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	group_create_encoded = jsonable_encoder(group_create)
@@ -67,17 +56,9 @@ async def create_group(
 )
 async def read_groups(
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	authorize: Annotated[AuthJWT, Depends()],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> list[GroupShortView]:
-	await authorize.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.read_groups']
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['check_authorized', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	return await group_service.read_groups()
@@ -94,17 +75,9 @@ async def update_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_update: Annotated[GroupUpdate, Body(description='Шаблон для изменения группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	authorize: Annotated[AuthJWT, Depends()],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> GroupDetailView:
-	await authorize.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.update_group']
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['update_group', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	group_update_encoded = jsonable_encoder(group_update)
@@ -129,17 +102,9 @@ async def update_group(
 async def delete_group(
 	group_id: Annotated[UUID, Path(description='Идентификатор группы')],
 	group_service: Annotated[GroupService, Depends(get_group_service)],
-	authorize: Annotated[AuthJWT, Depends()],
-	permission_claims_service: Annotated[PermissionClaimsService, Depends(get_permission_claims_service)],
-	access_token: Annotated[str, Depends(security)]
+	check_authorized: AuthorizationChecker = Depends(AuthorizationChecker)
 ) -> JSONResponse:
-	await authorize.jwt_required(token=access_token)
-	is_authorized = await permission_claims_service.required_permissions(
-		await authorize.get_jwt_subject(),
-		['groups.delete_group']
-	)
-
-	if not is_authorized:
+	if not await check_authorized(['delete_group', ]):
 		raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail='Not enough rights')
 
 	group_id = await group_service.delete_group(group_id)
